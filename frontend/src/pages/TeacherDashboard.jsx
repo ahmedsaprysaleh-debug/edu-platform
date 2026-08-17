@@ -5,6 +5,45 @@ import Spinner from "../components/Spinner";
 
 const CATEGORIES = ["رياضيات", "علوم", "لغات", "حاسب آلي", "تاريخ وجغرافيا", "أخرى"];
 
+// ==== إعدادات Cloudinary للرفع المباشر من الفرونت ====
+const CLOUDINARY_CLOUD_NAME = "nulhcdks";
+const CLOUDINARY_UPLOAD_PRESET = "course-videos";
+
+// رفع فيديو مباشرة على Cloudinary مع تتبع نسبة التقدم
+function uploadVideoToCloudinary(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      "POST",
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`
+    );
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && onProgress) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        onProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = JSON.parse(xhr.responseText);
+        resolve(data.secure_url);
+      } else {
+        reject(new Error("فشل رفع الفيديو على Cloudinary"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("حصل خطأ في الاتصال أثناء الرفع"));
+
+    xhr.send(formData);
+  });
+}
+
 export default function TeacherDashboard() {
   const { showToast } = useToast();
   const [courses, setCourses] = useState([]);
@@ -23,6 +62,11 @@ const [bulkLoading, setBulkLoading] = useState(false);
 const [videoForm, setVideoForm] = useState({ title: "", videoUrl: "" });
   const [uploading, setUploading] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState(null);
+
+  // ==== جديد: طريقة إضافة الفيديو (رابط أو رفع ملف) ====
+  const [videoMode, setVideoMode] = useState("link"); // "link" | "upload"
+  const [videoFile, setVideoFile] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [examForm, setExamForm] = useState({ title: "", durationMinutes: 20, isCompetitive: false, isFinal: false });
   const [activeExam, setActiveExam] = useState(null);
@@ -94,32 +138,67 @@ useEffect(() => { loadCourses(); }, []);
   };
 
   // --- فيديو ---
- const handleUploadVideo = async (e) => {
-  e.preventDefault();
-  if (editingVideoId) {
-    await api.patch(`/courses/${activeCourse}/videos/${editingVideoId}`, { title: videoForm.title, videoUrl: videoForm.videoUrl });
-    showToast("تم تعديل الفيديو ✅");
+  const resetVideoForm = () => {
+    setVideoForm({ title: "", videoUrl: "" });
+    setVideoFile(null);
+    setUploadProgress(0);
     setEditingVideoId(null);
-    setVideoForm({ title: "", videoUrl: "" });
-    loadCourseDetails(activeCourse);
-    return;
-  }
-  if (!videoForm.videoUrl) return showToast("حط رابط الفيديو (يوتيوب/فيميو) الأول", "error");
-  setUploading(true);
-  try {
-    await api.post(`/courses/${activeCourse}/videos`, { title: videoForm.title, videoUrl: videoForm.videoUrl });
-    showToast("تم إضافة الفيديو للكورس ✅");
-    setVideoForm({ title: "", videoUrl: "" });
-    loadCourseDetails(activeCourse);
-  } catch (err) {
-    showToast(err.response?.data?.message || "فشل إضافة الفيديو", "error");
-  } finally {
-    setUploading(false);
-  }
+  };
+
+  const handleUploadVideo = async (e) => {
+    e.preventDefault();
+
+    // تعديل فيديو موجود (بيفضل يعدل بالرابط بس، الأبسط)
+    if (editingVideoId) {
+      await api.patch(`/courses/${activeCourse}/videos/${editingVideoId}`, {
+        title: videoForm.title,
+        videoUrl: videoForm.videoUrl,
+      });
+      showToast("تم تعديل الفيديو ✅");
+      resetVideoForm();
+      loadCourseDetails(activeCourse);
+      return;
+    }
+
+    setUploading(true);
+    try {
+      let finalVideoUrl = videoForm.videoUrl;
+
+      // لو المدرّس اختار يرفع ملف فيديو فعلي بدل الرابط
+      if (videoMode === "upload") {
+        if (!videoFile) {
+          showToast("اختار ملف الفيديو الأول", "error");
+          setUploading(false);
+          return;
+        }
+        setUploadProgress(0);
+        finalVideoUrl = await uploadVideoToCloudinary(videoFile, setUploadProgress);
+      } else if (!finalVideoUrl) {
+        showToast("حط رابط الفيديو (يوتيوب/فيميو) الأول", "error");
+        setUploading(false);
+        return;
+      }
+
+      await api.post(`/courses/${activeCourse}/videos`, {
+        title: videoForm.title,
+        videoUrl: finalVideoUrl,
+      });
+      showToast("تم إضافة الفيديو للكورس ✅");
+      resetVideoForm();
+      loadCourseDetails(activeCourse);
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || "فشل إضافة الفيديو", "error");
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
+const startEditVideo = (v) => {
+  setEditingVideoId(v._id);
+  setVideoMode("link");
+  setVideoForm({ title: v.title, videoUrl: v.videoUrl || "" });
 };
-
-
-const startEditVideo = (v) => { setEditingVideoId(v._id); setVideoForm({ title: v.title, videoUrl: v.videoUrl || "" }); };
 const deleteVideo = async (videoId) => {
     if (!confirm("متأكد إنك عايز تحذف الفيديو ده؟")) return;
     await api.delete(`/courses/${activeCourse}/videos/${videoId}`);
@@ -281,23 +360,70 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
         <>
           {/* فيديوهات */}
           <div className="card">
-<h3>3) {editingVideoId ? "تعديل الفيديو" : "إضافة فيديو للكورس"}</h3>
-<p style={{ fontSize: 13, opacity: 0.8 }}>
-  ارفع الفيديو على يوتيوب أو فيميو كـ "غير مدرج / Unlisted" (مش هيظهر في البحث ولا في قناتك للعامة)، وحط الرابط هنا.
-</p>
-<form onSubmit={handleUploadVideo}>
-  <input placeholder="عنوان الفيديو" required
-    value={videoForm.title} onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })} />
-  <input placeholder="رابط الفيديو (يوتيوب أو فيميو)" required type="url"
-    value={videoForm.videoUrl} onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })} />
-  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-    <button className="btn" type="submit" disabled={uploading}>
-      {uploading ? "جاري الحفظ..." : editingVideoId ? "حفظ التعديل" : "إضافة الفيديو"}
-    </button>
-    {editingVideoId && <button type="button" className="btn secondary"
-      onClick={() => { setEditingVideoId(null); setVideoForm({ title: "", videoUrl: "" }); }}>إلغاء</button>}
-  </div>
-</form>
+            <h3>3) {editingVideoId ? "تعديل الفيديو" : "إضافة فيديو للكورس"}</h3>
+
+            {/* اختيار طريقة إضافة الفيديو: رابط أو رفع ملف مباشر */}
+            {!editingVideoId && (
+              <div style={{ display: "flex", gap: 16, margin: "10px 0" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="radio" style={{ width: "auto" }}
+                    checked={videoMode === "link"}
+                    onChange={() => setVideoMode("link")} />
+                  رابط يوتيوب / فيميو
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="radio" style={{ width: "auto" }}
+                    checked={videoMode === "upload"}
+                    onChange={() => setVideoMode("upload")} />
+                  رفع ملف فيديو مباشرة
+                </label>
+              </div>
+            )}
+
+            {videoMode === "link" && (
+              <p style={{ fontSize: 13, opacity: 0.8 }}>
+                ارفع الفيديو على يوتيوب أو فيميو كـ "غير مدرج / Unlisted" (مش هيظهر في البحث ولا في قناتك للعامة)، وحط الرابط هنا.
+              </p>
+            )}
+            {videoMode === "upload" && !editingVideoId && (
+              <p style={{ fontSize: 13, opacity: 0.8 }}>
+                هيترفع الفيديو مباشرة على Cloudinary. تأكد إن الملف mp4 أو webm أو mov وحجمه مناسب.
+              </p>
+            )}
+
+            <form onSubmit={handleUploadVideo}>
+              <input placeholder="عنوان الفيديو" required
+                value={videoForm.title} onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })} />
+
+              {(videoMode === "link" || editingVideoId) && (
+                <input placeholder="رابط الفيديو (يوتيوب أو فيميو)" required type="url"
+                  value={videoForm.videoUrl} onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })} />
+              )}
+
+              {videoMode === "upload" && !editingVideoId && (
+                <input type="file" accept="video/mp4,video/webm,video/quicktime"
+                  onChange={(e) => setVideoFile(e.target.files[0])} required />
+              )}
+
+              {uploading && videoMode === "upload" && (
+                <div style={{ margin: "8px 0" }}>
+                  <div style={{ background: "var(--border)", borderRadius: 20, height: 10, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${uploadProgress}%`, height: "100%",
+                      background: "linear-gradient(135deg,#22c55e,#16a34a)", transition: "width .2s ease"
+                    }} />
+                  </div>
+                  <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>جاري الرفع... {uploadProgress}%</p>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="btn" type="submit" disabled={uploading}>
+                  {uploading ? "جاري الحفظ..." : editingVideoId ? "حفظ التعديل" : "إضافة الفيديو"}
+                </button>
+                {editingVideoId && <button type="button" className="btn secondary" onClick={resetVideoForm}>إلغاء</button>}
+              </div>
+            </form>
 
             {courseVideos.map((v) => (
               <div key={v._id} className="leaderboard-row">
