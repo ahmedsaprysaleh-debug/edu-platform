@@ -34,9 +34,19 @@ function uploadVideoToCloudinary(file, onProgress) {
         const data = JSON.parse(xhr.responseText);
         resolve(data.secure_url);
       } else {
-        reject(new Error("فشل رفع الفيديو على Cloudinary"));
+        // نحاول نطلع رسالة الخطأ الحقيقية اللي راجعة من Cloudinary عشان تظهر للمدرّس
+        let message = `فشل رفع الفيديو (كود ${xhr.status})`;
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData?.error?.message) message = `Cloudinary: ${errData.error.message}`;
+        } catch (_) {
+          // الرد مش JSON، هنسيب الرسالة العامة
+        }
+        reject(new Error(message));
       }
     };
+
+    xhr.ontimeout = () => reject(new Error("انتهت مهلة الاتصال بـ Cloudinary"));
 
     xhr.onerror = () => reject(new Error("حصل خطأ في الاتصال أثناء الرفع"));
 
