@@ -8,49 +8,69 @@ const CATEGORIES = ["رياضيات", "علوم", "لغات", "حاسب آلي",
 // ==== إعدادات Cloudinary للرفع المباشر من الفرونت ====
 const CLOUDINARY_CLOUD_NAME = "nulhcdks";
 const CLOUDINARY_UPLOAD_PRESET = "course-videos";
+const CHUNK_SIZE = 20 * 1024 * 1024; // 20 ميجا لكل جزء (الحد الموصى به من Cloudinary)
 
-// رفع فيديو مباشرة على Cloudinary مع تتبع نسبة التقدم
+// رفع فيديو مباشرة على Cloudinary مع تقسيمه لأجزاء صغيرة
+// ده ضروري للفيديوهات الكبيرة (فوق 100 ميجا خصوصًا) عشان طلب واحد كبير
+// بيفشل أو بيعلّق على أي نت عادي، والتقسيم بيخلي كل جزء يترفع لوحده وبيقاوم انقطاع النت المؤقت
 function uploadVideoToCloudinary(file, onProgress) {
   return new Promise((resolve, reject) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+    const uploadId = `${file.name}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let currentChunk = 0;
 
-    const xhr = new XMLHttpRequest();
-    xhr.open(
-      "POST",
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`
-    );
+    function uploadChunk() {
+      const start = currentChunk * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable && onProgress) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        onProgress(percent);
-      }
-    };
+      const formData = new FormData();
+      formData.append("file", chunk);
+      formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+      formData.append("cloud_name", CLOUDINARY_CLOUD_NAME);
 
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText);
-        resolve(data.secure_url);
-      } else {
-        // نحاول نطلع رسالة الخطأ الحقيقية اللي راجعة من Cloudinary عشان تظهر للمدرّس
-        let message = `فشل رفع الفيديو (كود ${xhr.status})`;
-        try {
-          const errData = JSON.parse(xhr.responseText);
-          if (errData?.error?.message) message = `Cloudinary: ${errData.error.message}`;
-        } catch (_) {
-          // الرد مش JSON، هنسيب الرسالة العامة
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        "POST",
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`
+      );
+
+      xhr.setRequestHeader("X-Unique-Upload-Id", uploadId);
+      xhr.setRequestHeader("Content-Range", `bytes ${start}-${end - 1}/${file.size}`);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          currentChunk++;
+          const percent = Math.round((currentChunk / totalChunks) * 100);
+          if (onProgress) onProgress(percent);
+
+          if (currentChunk < totalChunks) {
+            uploadChunk();
+          } else {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data.secure_url);
+            } catch (e) {
+              reject(new Error("حصل خطأ في قراءة رد Cloudinary"));
+            }
+          }
+        } else {
+          let message = `فشل رفع الفيديو (كود ${xhr.status})`;
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            if (errData?.error?.message) message = `Cloudinary: ${errData.error.message}`;
+          } catch (_) {}
+          reject(new Error(message));
         }
-        reject(new Error(message));
-      }
-    };
+      };
 
-    xhr.ontimeout = () => reject(new Error("انتهت مهلة الاتصال بـ Cloudinary"));
+      xhr.ontimeout = () => reject(new Error("انتهت مهلة الاتصال بـ Cloudinary"));
+      xhr.onerror = () => reject(new Error("حصل خطأ في الاتصال أثناء الرفع"));
 
-    xhr.onerror = () => reject(new Error("حصل خطأ في الاتصال أثناء الرفع"));
+      xhr.send(formData);
+    }
 
-    xhr.send(formData);
+    uploadChunk();
   });
 }
 
@@ -73,7 +93,6 @@ const [videoForm, setVideoForm] = useState({ title: "", videoUrl: "" });
   const [uploading, setUploading] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState(null);
 
-  // ==== جديد: طريقة إضافة الفيديو (رابط أو رفع ملف) ====
   const [videoMode, setVideoMode] = useState("link"); // "link" | "upload"
   const [videoFile, setVideoFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -93,12 +112,11 @@ useEffect(() => { loadCourses(); }, []);
   const loadCourseDetails = (courseId) => {
     if (!courseId) { setCourseVideos([]); setCourseExams([]); return; }
     api.get(`/courses/${courseId}/videos`).then((res) => setCourseVideos(res.data)).catch(() => setCourseVideos([]));
-    api.get(`/courses?search=`).then(() => {}); // no-op keep
+    api.get(`/courses?search=`).then(() => {});
   };
 
   useEffect(() => { loadCourseDetails(activeCourse); setActiveExam(null); setQuestions([]); }, [activeCourse]);
 
-  // --- كورس: إنشاء / تعديل / حذف ---
   const resetCourseForm = () => {
     setCourseForm({ title: "", description: "", price: 0, isFree: false, category: "أخرى" });
     setEditingCourseId(null);
@@ -147,7 +165,6 @@ useEffect(() => { loadCourses(); }, []);
     loadCourses();
   };
 
-  // --- فيديو ---
   const resetVideoForm = () => {
     setVideoForm({ title: "", videoUrl: "" });
     setVideoFile(null);
@@ -158,7 +175,6 @@ useEffect(() => { loadCourses(); }, []);
   const handleUploadVideo = async (e) => {
     e.preventDefault();
 
-    // تعديل فيديو موجود (بيفضل يعدل بالرابط بس، الأبسط)
     if (editingVideoId) {
       await api.patch(`/courses/${activeCourse}/videos/${editingVideoId}`, {
         title: videoForm.title,
@@ -174,7 +190,6 @@ useEffect(() => { loadCourses(); }, []);
     try {
       let finalVideoUrl = videoForm.videoUrl;
 
-      // لو المدرّس اختار يرفع ملف فيديو فعلي بدل الرابط
       if (videoMode === "upload") {
         if (!videoFile) {
           showToast("اختار ملف الفيديو الأول", "error");
@@ -216,7 +231,6 @@ const deleteVideo = async (videoId) => {
     loadCourseDetails(activeCourse);
   };
 
-  // --- امتحان ---
   const handleCreateExam = async (e) => {
     e.preventDefault();
     try {
@@ -243,7 +257,6 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
     if (activeExam === examId) { setActiveExam(null); setQuestions([]); }
   };
 
-  // --- سؤال ---
   const updateOption = (idx, value) => {
     const opts = [...qForm.options];
     opts[idx] = value;
@@ -308,9 +321,8 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
 
   return (
     <div className="container">
-      <h2>🧑‍🏫 لوحة تحكم المدرّس</h2>
+      <h2>🧑‍🏫 لوحة تحكم المدرس</h2>
 
-      {/* إنشاء / تعديل كورس */}
       <div className="card">
         <h3>{editingCourseId ? "تعديل الكورس" : "1) إنشاء كورس جديد"}</h3>
         <form onSubmit={handleSaveCourse}>
@@ -343,7 +355,6 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
         </form>
       </div>
 
-      {/* قائمة الكورسات - تعديل/حذف */}
       <div className="card">
         <h3>كورساتي</h3>
         {courses.map((c) => (
@@ -357,7 +368,6 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
         ))}
       </div>
 
-      {/* اختيار كورس للعمل عليه */}
       <div className="card">
         <h3>2) اختار كورس تضيفله فيديوهات وامتحانات</h3>
         <select value={activeCourse || ""} onChange={(e) => setActiveCourse(e.target.value)}>
@@ -368,11 +378,9 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
 
       {activeCourse && (
         <>
-          {/* فيديوهات */}
           <div className="card">
             <h3>3) {editingVideoId ? "تعديل الفيديو" : "إضافة فيديو للكورس"}</h3>
 
-            {/* اختيار طريقة إضافة الفيديو: رابط أو رفع ملف مباشر */}
             {!editingVideoId && (
               <div style={{ display: "flex", gap: 16, margin: "10px 0" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -446,7 +454,6 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
             ))}
           </div>
 
-          {/* امتحان */}
           <div className="card">
             <h3>4) إنشاء امتحان</h3>
             <form onSubmit={handleCreateExam}>
@@ -481,7 +488,6 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
             )}
           </div>
 
-          {/* أسئلة */}
           {activeExam && (
             <div className="card">
               <h3>5) {editingQuestionId ? "تعديل السؤال" : "إضافة أسئلة للامتحان"}</h3>
