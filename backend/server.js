@@ -1,14 +1,12 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
-app.set('trust proxy', 1);
-
+app.set("trust proxy", 1);
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
 // const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
 
-// ✅ أضيف هنا — جميع الـ routes
 const authRoutes = require("./routes/authRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const examRoutes = require("./routes/examRoutes");
@@ -19,11 +17,19 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-connectDB();
-
 app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
 app.use(express.json());
-// ... باقي الملف كما هو ...
+
+// نتأكد إن الاتصال بالداتابيز شغال قبل أي request (بيرجع فورًا لو متصل بالفعل بفضل الكاش)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    res.status(503).json({ message: "الخدمة غير متاحة، فشل الاتصال بقاعدة البيانات" });
+  }
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/exams", examRoutes);
@@ -41,5 +47,17 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ message: err.message || "حصل خطأ في السيرفر" });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// محلي فقط: على Vercel الملف بيتصدّر كـ handler من غير ما يعمل listen
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  connectDB()
+    .then(() => {
+      app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+    })
+    .catch(() => {
+      console.error("❌ فشل تشغيل السيرفر محليًا بسبب مشكلة اتصال بالداتابيز");
+      process.exit(1);
+    });
+}
+
+module.exports = app;
