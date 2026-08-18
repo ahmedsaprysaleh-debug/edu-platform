@@ -7,7 +7,7 @@ app.set('trust proxy', 1);
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
-const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
+// const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
 
 // ✅ أضيف هنا — جميع الـ routes
 const authRoutes = require("./routes/authRoutes");
