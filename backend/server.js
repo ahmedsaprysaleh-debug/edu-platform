@@ -24,7 +24,7 @@ connectDB();
 
 app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
 app.use(express.json());
-app.use(generalLimiter);
+// app.use(generalLimiter);
 
 // ... باقي الملف كما هو ...
 app.use("/api/auth", authRoutes);
