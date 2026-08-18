@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
+const cloudinary = require("../config/cloudinary");
 const Video = require("../models/Video");
 const Course = require("../models/Course");
 const Payment = require("../models/Payment");
@@ -20,12 +21,12 @@ exports.getVideoToken = async (req, res) => {
       if (!paid) return res.status(403).json({ message: "لازم تدفع تمن الكورس الأول" });
     }
 
-    // لو الفيديو مش رفوعه محلي (يعني رابط خارجي من Cloudinary مثلًا) نرجعه زي ما هو - مش هنقدر نحميه أكتر من كده
+    // لو الفيديو مش رفوعه محلي (يعني رابط خارجي من Cloudinary مثلاً) نرجعه زي ما هو
     if (!video.localFilename) {
       return res.json({ streamUrl: video.videoUrl, protected: false });
     }
 
-    // توكن صالح لساعتين بس، ومربوط بالفيديو والطالب ده تحديدًا
+    // تكون صالح لساعتين ومربوط بالفيديو والطالب ده تحديدًا
     const token = jwt.sign(
       { videoId: video._id.toString(), userId: req.user._id.toString() },
       VIDEO_SECRET,
@@ -60,35 +61,47 @@ exports.streamVideo = async (req, res) => {
     if (!video || !video.localFilename) return res.status(404).json({ message: "الفيديو مش موجود" });
 
     const filePath = path.join(__dirname, "../uploads/videos", video.localFilename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ message: "ملف الفيديو مفقود" });
 
-    // بث بنظام Range عشان الطالب يقدر يقفز جوه الفيديو (سحب شريط التقدم)
-    const stat = fs.statSync(filePath);
-    const range = req.headers.range;
+    // فيديوهات قديمة لسه متخزنة فعليًا على الديسك المحلي - بث مباشر زي ما كان
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      const range = req.headers.range;
 
-    if (!range) {
-      res.writeHead(200, { "Content-Length": stat.size, "Content-Type": "video/mp4" });
-      return fs.createReadStream(filePath).pipe(res);
+      if (!range) {
+        res.writeHead(200, { "Content-Length": stat.size, "Content-Type": "video/mp4" });
+        return fs.createReadStream(filePath).pipe(res);
+      }
+
+      const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(startStr, 10);
+      const end = endStr ? parseInt(endStr, 10) : stat.size - 1;
+      const chunkSize = end - start + 1;
+
+      res.writeHead(206, {
+        "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunkSize,
+        "Content-Type": "video/mp4",
+        "Content-Disposition": "inline",
+      });
+      return fs.createReadStream(filePath, { start, end }).pipe(res);
     }
 
-    const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
-    const start = parseInt(startStr, 10);
-    const end = endStr ? parseInt(endStr, 10) : stat.size - 1;
-    const chunkSize = end - start + 1;
-
-    res.writeHead(206, {
-      "Content-Range": `bytes ${start}-${end}/${stat.size}`,
-      "Accept-Ranges": "bytes",
-      "Content-Length": chunkSize,
-      "Content-Type": "video/mp4",
-      // منع المتصفح من عرض زرار "تحميل" الافتراضي وحفظه بسهولة
-      "Content-Disposition": "inline",
+    // مش موجود على الديسك = الفيديو ده متخزن على Cloudinary
+    // localFilename هنا فعليًا هو الـ public_id اللي رجع وقت الرفع
+    const signedUrl = cloudinary.url(video.localFilename, {
+      resource_type: "video",
+      type: "authenticated",
+      sign_url: true,
+      secure: true,
     });
-    fs.createReadStream(filePath, { start, end }).pipe(res);
+
+    return res.redirect(302, signedUrl);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 // تسجيل الفيديو كـ "متابَع" من الطالب
 exports.markVideoWatched = async (req, res) => {
   try {
