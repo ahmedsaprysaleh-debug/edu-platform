@@ -1,11 +1,15 @@
 require("dotenv").config();
 const express = require("express");
+const app = express();
+
 app.set('trust proxy', 1);
+
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
 const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
 
+// ✅ أضيف هنا — جميع الـ routes
 const authRoutes = require("./routes/authRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const examRoutes = require("./routes/examRoutes");
@@ -16,25 +20,13 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-const app = express();
-
 connectDB();
 
 app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
 app.use(express.json());
 app.use(generalLimiter);
 
-// ملحوظة: ملفات /uploads متاحة كـ static قبل كده - اتشالت عشان محدش يلف على الفيديو
-// مباشرة من غير توكن. البث بقى بيعدي حصريًا من خلال /api/videos/stream/:id?token=...
-// الصور (أغلفة الكورسات) مش حساسة بنفس القدر فسايبينها static تحت مسار منفصل
-app.use("/uploads/images", express.static(path.join(__dirname, "uploads/images")));
-
-app.get("/api/health", (req, res) => res.json({ status: "ok" }));
-
-app.use("/api/auth/login", authLimiter);
-app.use("/api/auth/forgot-password", authLimiter);
-app.use("/api/exams/:examId/submit", examLimiter);
-
+// ... باقي الملف كما هو ...
 app.use("/api/auth", authRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/exams", examRoutes);
