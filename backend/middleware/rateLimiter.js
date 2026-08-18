@@ -1,22 +1,22 @@
 const rateLimit = require("express-rate-limit");
 
-// عام - كل الـ API
 exports.generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 دقيقة
+  windowMs: 15 * 60 * 1000,
   max: 300,
-  message: { message: "طلبات كتير أوي، حاول تاني بعد شوية" },
+  trustProxy: 1,  // ✅ أضيف هنا
+  message: { message: "محاولات كثيرة جداً، حاول مرة أخرى لاحقاً" },
 });
 
-// تسجيل الدخول - حماية من محاولات تخمين الباسورد
 exports.authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { message: "محاولات تسجيل دخول كتير، حاول تاني بعد 15 دقيقة" },
+  trustProxy: 1,  // ✅ أضيف هنا
+  message: { message: "محاولات دخول كثيرة، حاول بعد 15 دقيقة" },
 });
 
-// تسليم الامتحانات - يمنع البوتات من قصف السيرفر بإجابات
 exports.examLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  message: { message: "بطّئ شوية 🙂" },
+  trustProxy: 1,  // ✅ أضيف هنا
+  message: { message: "محاولات كثيرة جداً" },
 });
