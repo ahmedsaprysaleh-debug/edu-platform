@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+app.set('trust proxy', 1);
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
@@ -52,11 +53,4 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-
-// شغّل app.listen بس لما تكون شغال محليًا (مش على Vercel)
-if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}
-
-// Vercel محتاج الـ app نفسه يتصدّر كـ module بدل ما يفضل شغال دايمًا
-module.exports = app;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
