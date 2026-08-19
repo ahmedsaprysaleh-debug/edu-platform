@@ -171,8 +171,7 @@ useEffect(() => { loadCourses(); }, []);
     setUploadProgress(0);
     setEditingVideoId(null);
   };
-
-  const handleUploadVideo = async (e) => {
+const handleUploadVideo = async (e) => {
     e.preventDefault();
 
     if (editingVideoId) {
@@ -186,39 +185,78 @@ useEffect(() => { loadCourses(); }, []);
       return;
     }
 
-    setUploading(true);
-    try {
-      let finalVideoUrl = videoForm.videoUrl;
+    if (videoMode === "upload") {
+    if (!window.cloudinary) {
+  showToast("جاري تحميل Cloudinary... حاول مرة تانية", "error");
+  // جرب تحمّل الـ script يدويًا
+  const script = document.createElement('script');
+  script.src = 'https://upload-widget.cloudinary.com/latest/CloudinaryUploadWidget.js';
+  script.onload = () => {
+    console.log("Cloudinary loaded");
+  };
+  document.head.appendChild(script);
+  return;
+}
 
-      if (videoMode === "upload") {
-        if (!videoFile) {
-          showToast("اختار ملف الفيديو الأول", "error");
-          setUploading(false);
-          return;
+      window.cloudinary.openUploadWidget(
+        {
+          cloudName: "nulhcdks",
+          uploadPreset: "course-videos",
+          resourceType: "video",
+          folder: "edu-platform/videos",
+          maxFileSize: 500000000,
+          multiple: false,
+          sources: ["local"],
+          showPoweredBy: false,
+        },
+        async (error, result) => {
+          if (error) {
+            showToast("فشل الرفع", "error");
+            return;
+          }
+
+          if (result?.event === "success") {
+            const videoUrl = result.info.secure_url;
+
+            try {
+              setUploading(true);
+              await api.post(`/courses/${activeCourse}/videos`, {
+                title: videoForm.title,
+                videoUrl: videoUrl,
+              });
+              showToast("تم إضافة الفيديو للكورس ✅");
+              resetVideoForm();
+              loadCourseDetails(activeCourse);
+            } catch (err) {
+              showToast(err.response?.data?.message || "فشل إضافة الفيديو", "error");
+            } finally {
+              setUploading(false);
+            }
+          }
         }
-        setUploadProgress(0);
-        finalVideoUrl = await uploadVideoToCloudinary(videoFile, setUploadProgress);
-      } else if (!finalVideoUrl) {
-        showToast("حط رابط الفيديو (يوتيوب/فيميو) الأول", "error");
-        setUploading(false);
+      );
+    } else if (videoMode === "link") {
+      if (!videoForm.videoUrl) {
+        showToast("حط رابط الفيديو الأول", "error");
         return;
       }
 
-      await api.post(`/courses/${activeCourse}/videos`, {
-        title: videoForm.title,
-        videoUrl: finalVideoUrl,
-      });
-      showToast("تم إضافة الفيديو للكورس ✅");
-      resetVideoForm();
-      loadCourseDetails(activeCourse);
-    } catch (err) {
-      showToast(err.response?.data?.message || err.message || "فشل إضافة الفيديو", "error");
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
+      try {
+        setUploading(true);
+        await api.post(`/courses/${activeCourse}/videos`, {
+          title: videoForm.title,
+          videoUrl: videoForm.videoUrl,
+        });
+        showToast("تم إضافة الفيديو للكورس ✅");
+        resetVideoForm();
+        loadCourseDetails(activeCourse);
+      } catch (err) {
+        showToast(err.response?.data?.message || "فشل إضافة الفيديو", "error");
+      } finally {
+        setUploading(false);
+      }
     }
   };
-
 const startEditVideo = (v) => {
   setEditingVideoId(v._id);
   setVideoMode("link");
