@@ -233,3 +233,78 @@ input, select, textarea {
 .whatsapp-fab:hover {
   transform: scale(1.1);
 }
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .container {
+    width: 95%;
+    padding: 10px;
+    margin: 10px auto;
+  }
+
+  .card {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  input, textarea, select {
+    font-size: 16px !important; /* منع zoom عند التركيز */
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+  }
+
+  button {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+  }
+
+  h2, h3, h4 {
+    font-size: 18px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* للـ forms محاذاة */
+  .leaderboard-row {
+    flex-direction: column !important;
+    gap: 8px;
+  }
+
+  .btn, .icon-btn {
+    font-size: 14px;
+    padding: 10px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    width: 98%;
+    padding: 5px;
+  }
+
+  .card {
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  h3 {
+    font-size: 14px;
+  }
+
+  input, textarea, select, button {
+    font-size: 14px;
+    padding: 8px;
+  }
+}
