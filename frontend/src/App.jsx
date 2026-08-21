@@ -59,8 +59,10 @@ function Navbar() {
 
   return (
     <nav className="navbar">
-      <Link to="/" style={{ fontWeight: "bold", fontSize: 18 }}>📚 {t("appName")}</Link>
-      <div style={{ display: "flex", alignItems: "center" }}>
+<Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+  <img src="/logo-icon.svg" alt="لوجو" style={{ width: 30, height: 30 }} />
+  <span style={{ fontWeight: "bold", fontSize: 18, color: "var(--text)" }}>{t("appName")}</span>
+</Link>      <div style={{ display: "flex", alignItems: "center" }}>
       <Link to="/">{t("courses")}</Link>
 {user?.role === "student" && <Link to="/my-courses">كورساتي</Link>}
 <Link to="/leaderboard">{t("leaderboard")}</Link>
@@ -117,7 +119,7 @@ function AppInner() {
         <a href="https://wa.me/+201027218581" target="_blank" rel="noreferrer" className="whatsapp-fab">💬</a>
         <VerifyBanner />
         <Routes>
-          <Route path="/" element={<Courses />} />
+          <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

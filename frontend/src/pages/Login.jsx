@@ -16,7 +16,14 @@ export default function Login() {
       const { data } = await api.post("/auth/login", form);
       localStorage.setItem("token", data.token);
       setUser(data.user);
-      navigate("/");
+
+      if (data.user.role === "admin") {
+        navigate("/admin");
+      } else if (data.user.role === "teacher") {
+        navigate("/teacher");
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "حصل خطأ");
     }

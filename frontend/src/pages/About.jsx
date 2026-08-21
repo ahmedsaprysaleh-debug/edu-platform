@@ -25,6 +25,16 @@ export default function About() {
           </a>
         </div>
       </div>
+
+      <div className="card" style={{ textAlign: "center" }}>
+        <h2>📱 افتح الموقع من موبايلك</h2>
+        <p>صوّر الكود ده بكاميرا موبايلك عشان تفتح الموقع بسرعة</p>
+        <img
+          src="/site-qrcode.png"
+          alt="QR code لموقع منصتي التعليمية"
+          style={{ width: 180, height: 180, margin: "12px auto", borderRadius: 12, background: "#fff", padding: 10 }}
+        />
+      </div>
     </div>
   );
 }

@@ -1,0 +1,13 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+<title>أيقونة منصتي التعليمية</title>
+<defs>
+<linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" stop-color="#4f6ef7"/>
+<stop offset="100%" stop-color="#8b5cf6"/>
+</linearGradient>
+</defs>
+<circle cx="100" cy="100" r="94" fill="url(#g1)"/>
+<path d="M 53 128 L 53 76 L 76.5 106 L 100 76 L 123.5 106 L 147 76 L 147 128"
+fill="none" stroke="#ffffff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="100" cy="58" r="7" fill="#ffffff"/>
+</svg>
