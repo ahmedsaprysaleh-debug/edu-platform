@@ -41,8 +41,7 @@ export default function Courses() {
           {courses.map((c) => (
             <div className="circle-card" key={c._id}>
 {c.coverImageFilename ? (
-  <img src={`${imgBase}/uploads/images/${c.coverImageFilename}`} alt={c.title} />
-) : (
+<img src={c.coverImageFilename} alt={c.title} />) : (
   <div style={{
     width: "100%", height: 180, background: "linear-gradient(135deg,#2563eb,#1d4ed8)",
     display: "flex", alignItems: "center", justifyContent: "center",

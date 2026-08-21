@@ -132,8 +132,7 @@ useEffect(() => { loadCourses(); }, []);
         const fd = new FormData();
         fd.append("image", coverFile);
         const { data } = await api.post("/uploads/image", fd, { headers: { "Content-Type": "multipart/form-data" } });
-        coverImageFilename = data.localFilename;
-        setUploadingCover(false);
+        coverImageFilename = data.cloudinaryUrl;        setUploadingCover(false);
       }
       const payload = { ...courseForm, ...(coverImageFilename && { coverImageFilename }) };
 
