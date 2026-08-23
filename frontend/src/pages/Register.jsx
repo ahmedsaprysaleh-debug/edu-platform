@@ -6,6 +6,7 @@ import { useAuth } from "../App";
 export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "student", teacherInviteCode: "" });
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const { setUser } = useAuth();
   const navigate = useNavigate();
 
@@ -32,8 +33,37 @@ export default function Register() {
             value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <input type="email" placeholder="الإيميل" required
             value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <input type="password" placeholder="الباسورد" required
-            value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+
+          <div style={{ position: "relative" }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="الباسورد"
+              required
+              style={{ width: "100%", paddingLeft: 36, boxSizing: "border-box" }}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "إخفاء الباسورد" : "إظهار الباسورد"}
+              style={{
+                position: "absolute",
+                left: 8,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 16,
+                lineHeight: 1,
+                padding: 4,
+              }}
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
+
           <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="student">طالب</option>
             <option value="teacher">مدرّس</option>

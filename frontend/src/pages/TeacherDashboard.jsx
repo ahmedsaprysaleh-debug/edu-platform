@@ -89,7 +89,7 @@ const [bulkLoading, setBulkLoading] = useState(false);
   const [coverFile, setCoverFile] = useState(null);
   const [uploadingCover, setUploadingCover] = useState(false);
 
-const [videoForm, setVideoForm] = useState({ title: "", videoUrl: "" });
+const [videoForm, setVideoForm] = useState({ title: "", videoUrl: "", attachmentUrl: "", attachmentTitle: "" });
   const [uploading, setUploading] = useState(false);
   const [editingVideoId, setEditingVideoId] = useState(null);
 
@@ -97,7 +97,14 @@ const [videoForm, setVideoForm] = useState({ title: "", videoUrl: "" });
   const [videoFile, setVideoFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const [examForm, setExamForm] = useState({ title: "", durationMinutes: 20, isCompetitive: false, isFinal: false });
+  const [examForm, setExamForm] = useState({
+    title: "",
+    durationMinutes: 20,
+    isCompetitive: false,
+    isFinal: false,
+    availableFrom: "",
+    availableUntil: "",
+  });
   const [activeExam, setActiveExam] = useState(null);
   const [questions, setQuestions] = useState([]);
 
@@ -165,7 +172,7 @@ useEffect(() => { loadCourses(); }, []);
   };
 
   const resetVideoForm = () => {
-    setVideoForm({ title: "", videoUrl: "" });
+    setVideoForm({ title: "", videoUrl: "", attachmentUrl: "", attachmentTitle: "" });
     setVideoFile(null);
     setUploadProgress(0);
     setEditingVideoId(null);
@@ -177,6 +184,8 @@ const handleUploadVideo = async (e) => {
       await api.patch(`/courses/${activeCourse}/videos/${editingVideoId}`, {
         title: videoForm.title,
         videoUrl: videoForm.videoUrl,
+        attachmentUrl: videoForm.attachmentUrl,
+        attachmentTitle: videoForm.attachmentTitle,
       });
       showToast("تم تعديل الفيديو ✅");
       resetVideoForm();
@@ -222,6 +231,8 @@ const handleUploadVideo = async (e) => {
               await api.post(`/courses/${activeCourse}/videos`, {
                 title: videoForm.title,
                 videoUrl: videoUrl,
+                attachmentUrl: videoForm.attachmentUrl,
+                attachmentTitle: videoForm.attachmentTitle,
               });
               showToast("تم إضافة الفيديو للكورس ✅");
               resetVideoForm();
@@ -245,6 +256,8 @@ const handleUploadVideo = async (e) => {
         await api.post(`/courses/${activeCourse}/videos`, {
           title: videoForm.title,
           videoUrl: videoForm.videoUrl,
+          attachmentUrl: videoForm.attachmentUrl,
+          attachmentTitle: videoForm.attachmentTitle,
         });
         showToast("تم إضافة الفيديو للكورس ✅");
         resetVideoForm();
@@ -259,7 +272,12 @@ const handleUploadVideo = async (e) => {
 const startEditVideo = (v) => {
   setEditingVideoId(v._id);
   setVideoMode("link");
-  setVideoForm({ title: v.title, videoUrl: v.videoUrl || "" });
+  setVideoForm({
+    title: v.title,
+    videoUrl: v.videoUrl || "",
+    attachmentUrl: v.attachmentUrl || "",
+    attachmentTitle: v.attachmentTitle || "",
+  });
 };
 const deleteVideo = async (videoId) => {
     if (!confirm("متأكد إنك عايز تحذف الفيديو ده؟")) return;
@@ -268,14 +286,32 @@ const deleteVideo = async (videoId) => {
     loadCourseDetails(activeCourse);
   };
 
+  const resetExamForm = () => {
+    setExamForm({
+      title: "",
+      durationMinutes: 20,
+      isCompetitive: false,
+      isFinal: false,
+      availableFrom: "",
+      availableUntil: "",
+    });
+  };
+
   const handleCreateExam = async (e) => {
     e.preventDefault();
     try {
-      const { data } = await api.post("/exams", { ...examForm, course: activeCourse });
+      const payload = {
+        ...examForm,
+        course: activeCourse,
+        // datetime-local بيرجع string من غير timezone - لو فاضي نبعت null عشان الباك إند يفهمها "مفيش قيد"
+        availableFrom: examForm.availableFrom ? new Date(examForm.availableFrom).toISOString() : null,
+        availableUntil: examForm.availableUntil ? new Date(examForm.availableUntil).toISOString() : null,
+      };
+      const { data } = await api.post("/exams", payload);
       showToast("تم إنشاء الامتحان ✅");
       setActiveExam(data._id);
       setQuestions([]);
-      setExamForm({ title: "", durationMinutes: 20, isCompetitive: false, isFinal: false });
+      resetExamForm();
     } catch (err) {
       showToast(err.response?.data?.message || "حصل خطأ", "error");
     }
@@ -460,6 +496,19 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
                   onChange={(e) => setVideoFile(e.target.files[0])} required />
               )}
 
+              <label style={{ marginTop: 8, display: "block" }}>ملف شرح مرفق (اختياري - رابط Google Drive مثلاً)</label>
+              <input
+                placeholder="عنوان الملف (مثلاً: ملخص الدرس)"
+                value={videoForm.attachmentTitle}
+                onChange={(e) => setVideoForm({ ...videoForm, attachmentTitle: e.target.value })}
+              />
+              <input
+                placeholder="رابط الملف"
+                type="url"
+                value={videoForm.attachmentUrl}
+                onChange={(e) => setVideoForm({ ...videoForm, attachmentUrl: e.target.value })}
+              />
+
               {uploading && videoMode === "upload" && (
                 <div style={{ margin: "8px 0" }}>
                   <div style={{ background: "var(--border)", borderRadius: 20, height: 10, overflow: "hidden" }}>
@@ -512,7 +561,21 @@ useEffect(() => { loadQuestions(activeExam); }, [activeExam]);
                   onChange={(e) => setExamForm({ ...examForm, isFinal: e.target.checked })} />
                 امتحان نهائي (يديله شهادة)
               </label>
-              <button className="btn" type="submit">إنشاء الامتحان</button>
+
+              <label>متاح من (اختياري)</label>
+              <input type="datetime-local"
+                value={examForm.availableFrom}
+                onChange={(e) => setExamForm({ ...examForm, availableFrom: e.target.value })} />
+
+              <label>متاح لحد (اختياري - بعدها محدش يقدر يبدأ الامتحان)</label>
+              <input type="datetime-local"
+                value={examForm.availableUntil}
+                onChange={(e) => setExamForm({ ...examForm, availableUntil: e.target.value })} />
+              <p style={{ fontSize: 12, opacity: 0.7, marginTop: -6 }}>
+                سيبهم فاضيين لو عايز الامتحان يفضل متاح على طول.
+              </p>
+
+              <button className="btn" type="submit" style={{ marginTop: 8 }}>إنشاء الامتحان</button>
             </form>
             {activeExam && (
               <p style={{ marginTop: 10 }}>

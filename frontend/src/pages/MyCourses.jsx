@@ -5,7 +5,6 @@ import Spinner from "../components/Spinner";
 
 export default function MyCourses() {
   const [courses, setCourses] = useState(null);
-  const imgBase = api.defaults.baseURL.replace("/api", "");
 
   useEffect(() => {
     api.get("/courses/my").then((res) => setCourses(res.data));
@@ -21,7 +20,16 @@ export default function MyCourses() {
           {courses.map((c) => (
             <div className="circle-card" key={c._id}>
               {c.coverImageFilename ? (
-                <img src={`${imgBase}/uploads/images/${c.coverImageFilename}`} alt={c.title} />
+                <img
+                  src={c.coverImageFilename}
+                  alt={c.title}
+                  style={{
+                    width: "100%",
+                    height: 180,
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
               ) : (
                 <div style={{
                   width: "100%", height: 180, background: "linear-gradient(135deg,#2563eb,#1d4ed8)",

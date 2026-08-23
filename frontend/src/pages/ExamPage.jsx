@@ -4,6 +4,8 @@ import api from "../api/axios";
 
 export default function ExamPage() {
   const { examId } = useParams();
+  const storageKey = `exam-answers-${examId}`;
+
   const [examTitle, setExamTitle] = useState("");
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
@@ -11,11 +13,23 @@ export default function ExamPage() {
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   const [error, setError] = useState("");
   const [tabWarning, setTabWarning] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
 
-  const handleSubmit = useCallback(async () => {
+  const handleSubmit = useCallback(async ({ skipConfirm = false } = {}) => {
     if (submittingRef.current) return;
+
+    if (!skipConfirm) {
+      const answeredCount = Object.keys(answers).length;
+      const confirmMsg =
+        answeredCount < questions.length
+          ? `لسه فاضل ${questions.length - answeredCount} سؤال من غير إجابة. متأكد إنك عايز تسلّم الامتحان؟`
+          : "متأكد إنك عايز تسلّم الامتحان؟ مش هتقدر تعدّل بعد كده.";
+      if (!window.confirm(confirmMsg)) return;
+    }
+
     submittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const payload = {
         answers: Object.entries(answers).map(([questionId, ans]) => ({
@@ -26,11 +40,13 @@ export default function ExamPage() {
       };
       const { data } = await api.post(`/exams/${examId}/submit`, payload);
       setResult(data);
+      localStorage.removeItem(storageKey);
     } catch (err) {
       setError(err.response?.data?.message || "حصل خطأ في التسليم");
       submittingRef.current = false;
+      setIsSubmitting(false);
     }
-  }, [answers, examId]);
+  }, [answers, examId, questions.length, storageKey]);
 
   // بدء الامتحان: الأسئلة والاختيارات بترجع من السيرفر جاهزة ومخلوطة خصيصًا لهذا الطالب
   useEffect(() => {
@@ -41,16 +57,47 @@ export default function ExamPage() {
       const totalAllowed = data.durationMinutes * 60;
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       setRemainingSeconds(Math.max(totalAllowed - elapsed, 0));
+
+      // استرجاع أي إجابات محفوظة محليًا من قبل (لو الطالب عمل refresh بالغلط)
+      try {
+        const saved = localStorage.getItem(`exam-answers-${examId}`);
+        if (saved) setAnswers(JSON.parse(saved));
+      } catch {
+        // تجاهل أي خطأ في القراءة من localStorage
+      }
     }).catch((err) => setError(err.response?.data?.message || "حصل خطأ"));
   }, [examId]);
+
+  // حفظ الإجابات أول بأول في localStorage عشان لو حصل refresh أو قفل تاب بالغلط
+  // ما يضيعش إجابات الطالب. ده حل مؤقت في الفرونت فقط - لسه محتاجين endpoint
+  // في الباك اند لحفظ الإجابات على السيرفر لحماية أقوى (لو الجهاز نفسه اتقفل مثلاً).
+  useEffect(() => {
+    if (Object.keys(answers).length === 0) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(answers));
+    } catch {
+      // تجاهل أي خطأ في الكتابة (مساحة ممتلئة مثلاً)
+    }
+  }, [answers, storageKey]);
 
   // التايمر
   useEffect(() => {
     if (remainingSeconds === null || result) return;
-    if (remainingSeconds <= 0) { handleSubmit(); return; }
+    if (remainingSeconds <= 0) { handleSubmit({ skipConfirm: true }); return; }
     const timer = setTimeout(() => setRemainingSeconds((s) => s - 1), 1000);
     return () => clearTimeout(timer);
   }, [remainingSeconds, result, handleSubmit]);
+
+  // تحذير لو الطالب حاول يقفل التاب أو يعمل refresh وهو لسه ماسلمش
+  useEffect(() => {
+    if (result) return;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [result]);
 
   // منع الغش: لو الطالب سرّح من التاب وقت الامتحان، بنسجلها ونحذّره
   useEffect(() => {
@@ -101,6 +148,8 @@ export default function ExamPage() {
     );
   }
 
+  const answeredCount = Object.keys(answers).length;
+
   return (
     <div className="container">
       {tabWarning > 0 && (
@@ -110,9 +159,12 @@ export default function ExamPage() {
       )}
       <div className="card" style={{
         position: "sticky", top: 0, zIndex: 10, display: "flex",
-        justifyContent: "space-between", alignItems: "center",
+        justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8,
       }}>
         <h2 style={{ margin: 0 }}>{examTitle}</h2>
+        <span className="badge" style={{ fontSize: 14 }}>
+          {answeredCount} / {questions.length} سؤال اتجاوب
+        </span>
         <span className="badge" style={{
           fontSize: 18,
           background: remainingSeconds <= 60 ? "var(--danger-bg)" : "var(--success-bg)",
@@ -141,7 +193,9 @@ export default function ExamPage() {
           )}
         </div>
       ))}
-      <button className="btn" onClick={handleSubmit}>تسليم الامتحان</button>
+      <button className="btn" onClick={() => handleSubmit()} disabled={isSubmitting}>
+        {isSubmitting ? "جاري التسليم..." : "تسليم الامتحان"}
+      </button>
     </div>
   );
 }

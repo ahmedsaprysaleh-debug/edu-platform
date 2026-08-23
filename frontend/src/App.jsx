@@ -20,6 +20,8 @@ import TeacherGrading from "./pages/TeacherGrading";
 import AdminPanel from "./pages/AdminPanel";
 import MyCourses from "./pages/MyCourses";
 import About from "./pages/About";
+import MyMistakes from "./pages/MyMistakes";
+import StudentMistakes from "./pages/StudentMistakes";
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -47,50 +49,236 @@ function VerifyBanner() {
   );
 }
 
+function NotificationBell() {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const loadUnreadCount = async () => {
+    try {
+      const res = await api.get("/notifications/unread-count");
+      setUnreadCount(res.data.count);
+    } catch {}
+  };
+
+  const loadNotifications = async () => {
+    try {
+      const res = await api.get("/notifications");
+      setNotifications(res.data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 30000); // كل 30 ثانية
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const handleToggle = () => {
+    if (!open) loadNotifications();
+    setOpen(!open);
+  };
+
+  const handleClickNotification = async (n) => {
+    try {
+      await api.patch(`/notifications/${n._id}/read`);
+      setNotifications((prev) => prev.map((x) => (x._id === n._id ? { ...x, read: true } : x)));
+      setUnreadCount((c) => Math.max(0, c - (n.read ? 0 : 1)));
+    } catch {}
+    setOpen(false);
+    if (n.link) navigate(n.link);
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch("/notifications/mark-all-read");
+      setNotifications((prev) => prev.map((x) => ({ ...x, read: true })));
+      setUnreadCount(0);
+    } catch {}
+  };
+
+  if (!user) return null;
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button className="icon-btn" onClick={handleToggle} title="الإشعارات" style={{ position: "relative" }}>
+        🔔
+        {unreadCount > 0 && (
+          <span style={{
+            position: "absolute", top: -4, right: -4, background: "var(--danger)", color: "#fff",
+            borderRadius: "50%", minWidth: 16, height: 16, fontSize: 10, display: "flex",
+            alignItems: "center", justifyContent: "center", padding: "0 3px", fontWeight: "bold",
+          }}>
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+          <div style={{
+            position: "absolute", top: "calc(100% + 8px)", left: 0, width: 300, maxHeight: 400,
+            overflowY: "auto", background: "var(--card-bg)", border: "1px solid var(--border)",
+            borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", zIndex: 999,
+          }}>
+            <div style={{
+              padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex",
+              justifyContent: "space-between", alignItems: "center",
+            }}>
+              <strong style={{ fontSize: 14 }}>الإشعارات</strong>
+              {notifications.some((n) => !n.read) && (
+                <span onClick={handleMarkAllRead} style={{ fontSize: 12, color: "var(--primary)", cursor: "pointer" }}>
+                  تحديد الكل كمقروء
+                </span>
+              )}
+            </div>
+
+            {notifications.length === 0 ? (
+              <p style={{ padding: 16, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
+                مفيش إشعارات لسه
+              </p>
+            ) : (
+              notifications.map((n) => (
+                <div
+                  key={n._id}
+                  onClick={() => handleClickNotification(n)}
+                  style={{
+                    padding: "10px 14px", borderBottom: "1px solid var(--border)", cursor: "pointer",
+                    background: n.read ? "transparent" : "rgba(59,130,246,0.08)",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.4 }}>{n.message}</p>
+                  <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                    {new Date(n.createdAt).toLocaleDateString("ar-EG")}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Navbar() {
   const { user, logout } = useAuth();
   const { t, lang, theme, toggleLang, toggleTheme } = useSettings();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
-
   return (
-    <nav className="navbar">
-<Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-  <img src="/logo-icon.svg" alt="لوجو" style={{ width: 30, height: 30 }} />
-  <span style={{ fontWeight: "bold", fontSize: 18, color: "var(--text)" }}>{t("appName")}</span>
-</Link>      <div style={{ display: "flex", alignItems: "center" }}>
-      <Link to="/">{t("courses")}</Link>
-{user?.role === "student" && <Link to="/my-courses">كورساتي</Link>}
-<Link to="/leaderboard">{t("leaderboard")}</Link>
-<Link to="/about">{t("about")}</Link>
-{user && <Link to="/profile">{t("profile")}</Link>}
-{(user?.role === "teacher" || user?.role === "admin") && <Link to="/teacher">{t("teacherPanel")}</Link>}
-{user?.role === "admin" && <Link to="/admin">{t("admin")}</Link>}
-        <button className="icon-btn" onClick={toggleLang}>{lang === "ar" ? "EN" : "AR"}</button>
-        <button className="icon-btn" onClick={toggleTheme}>{theme === "light" ? "🌙" : "☀️"}</button>
+    <>
+      <nav className="navbar">
+        {/* الاسم + اللغة + الإضاءة + الإشعارات على اليسار */}
+        <div className="navbar-left">
+          <Link to="/" style={{ fontWeight: "bold", fontSize: 18 }}>
+            📚 {t("appName")}
+          </Link>
+          <button className="icon-btn" onClick={toggleLang} title="Language">
+            {lang === "ar" ? "EN" : "AR"}
+          </button>
+          <button className="icon-btn" onClick={toggleTheme} title="Theme">
+            {theme === "light" ? "🌙" : "☀️"}
+          </button>
+          <NotificationBell />
+        </div>
+
+        {/* زرار المينيو على اليمين */}
+        <button
+          className="icon-btn navbar-toggle"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          ☰
+        </button>
+      </nav>
+
+      {/* Overlay (الخلفية الشفافة) */}
+      <div 
+        className={`navbar-overlay ${menuOpen ? "open" : ""}`}
+        onClick={() => setMenuOpen(false)}
+      ></div>
+
+      {/* الـ Sidebar (القائمة الجانبية) */}
+      <div className={`navbar-drawer ${menuOpen ? "open" : ""}`}>
+        <Link to="/" onClick={() => setMenuOpen(false)}>
+          {t("courses")}
+        </Link>
+        {user?.role === "student" && (
+          <Link to="/my-courses" onClick={() => setMenuOpen(false)}>
+            كورساتي
+          </Link>
+        )}
+        {user?.role === "student" && (
+          <Link to="/my-mistakes" onClick={() => setMenuOpen(false)}>
+            أسئلتي الغلط
+          </Link>
+        )}
+        <Link to="/leaderboard" onClick={() => setMenuOpen(false)}>
+          {t("leaderboard")}
+        </Link>
+        <Link to="/about" onClick={() => setMenuOpen(false)}>
+          {t("about")}
+        </Link>
+        {user && (
+          <Link to="/profile" onClick={() => setMenuOpen(false)}>
+            {t("profile")}
+          </Link>
+        )}
+        {(user?.role === "teacher" || user?.role === "admin") && (
+          <Link to="/teacher" onClick={() => setMenuOpen(false)}>
+            {t("teacherPanel")}
+          </Link>
+        )}
+        {user?.role === "admin" && (
+          <Link to="/admin" onClick={() => setMenuOpen(false)}>
+            {t("admin")}
+          </Link>
+        )}
+
+        <hr style={{ borderColor: "rgba(255,255,255,0.1)", margin: "10px 0" }} />
 
         {user ? (
           <>
-<span className="badge" style={{ marginInlineStart: 10 }}>
-  {user.name}{user.role === "student" && ` - ${user.points} ${t("points")}`}
-</span>
-            <button className="btn" style={{ marginInlineStart: 10 }} onClick={handleLogout}>{t("logout")}</button>
+            <div style={{ padding: "8px 12px", textAlign: "center" }}>
+              <span className="badge">
+                {user.name}
+                {user.role === "student" && ` - ${user.points} ${t("points")}`}
+              </span>
+            </div>
+        <button 
+  className="btn" 
+  onClick={() => {
+    handleLogout();
+    setMenuOpen(false);
+  }}
+  style={{ width: "100%" }}
+>
+              {t("logout")}
+            </button>
           </>
         ) : (
           <>
-            <Link to="/login">{t("login")}</Link>
-            <Link to="/register">{t("register")}</Link>
+            <Link to="/login" onClick={() => setMenuOpen(false)}>
+              {t("login")}
+            </Link>
+            <Link to="/register" onClick={() => setMenuOpen(false)}>
+              {t("register")}
+            </Link>
           </>
         )}
       </div>
-    </nav>
+    </>
   );
 }
-
 function AppInner() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,7 +307,7 @@ function AppInner() {
         <a href="https://wa.me/+201027218581" target="_blank" rel="noreferrer" className="whatsapp-fab">💬</a>
         <VerifyBanner />
         <Routes>
-          <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
+        <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -132,11 +320,17 @@ function AppInner() {
           <Route path="/payment/:courseId" element={user ? <Payment /> : <Navigate to="/login" />} />
           <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
           <Route path="/my-courses" element={user ? <MyCourses /> : <Navigate to="/login" />} />
+          <Route path="/my-mistakes" element={
+            user?.role === "student" ? <MyMistakes /> : <Navigate to="/" />
+          } />
           <Route path="/teacher" element={
             (user?.role === "teacher" || user?.role === "admin") ? <TeacherDashboard /> : <Navigate to="/" />
           } />
           <Route path="/teacher/grading/:examId" element={
             (user?.role === "teacher" || user?.role === "admin") ? <TeacherGrading /> : <Navigate to="/" />
+          } />
+          <Route path="/teacher/students/:studentId/mistakes" element={
+            (user?.role === "teacher" || user?.role === "admin") ? <StudentMistakes /> : <Navigate to="/" />
           } />
           <Route path="/admin" element={user?.role === "admin" ? <AdminPanel /> : <Navigate to="/" />} />
         </Routes>
