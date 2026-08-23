@@ -77,15 +77,46 @@ exports.resendVerification = async (req, res) => {
   }
 };
 
+// نسخة عامة (من غير تسجيل دخول) - مهمة لأن المستخدم مش مفعّل يبقى مايقدرش يسجل دخول أصلاً
+// عشان يستخدم resendVerification العادية (اللي بتحتاج توكن دخول)
+exports.resendVerificationByEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    // برد بنفس الرسالة سواء الإيميل موجود ولا لأ، عشان محدش يعرف مين مسجل في الموقع
+    if (!user || user.isVerified) {
+      return res.json({ message: "لو الإيميل ده مسجل ومش مفعّل، هيوصلك إيميل تفعيل جديد" });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+    user.verificationToken = verificationToken;
+    await user.save();
+
+    const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
+    try {
+      await sendVerificationEmail(user.email, verifyUrl);
+    } catch (mailErr) {
+      console.error("فشل إرسال إيميل التفعيل - تأكد من إعدادات SMTP في .env:", mailErr.message);
+    }
+    res.json({ message: "لو الإيميل ده مسجل ومش مفعّل، هيوصلك إيميل تفعيل جديد" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    // الباسورد مخفي بشكل افتراضي (select:false) في الموديل - لازم نطلبه صراحةً هنا عشان نقارنه
+    const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "الإيميل أو الباسورد غلط" });
     }
     if (!user.isActive) {
       return res.status(403).json({ message: "حسابك متعطل، تواصل مع الإدارة" });
+    }
+    if (!user.isVerified) {
+      return res.status(403).json({ message: "حسابك لسه مش مفعّل، افتح إيميلك وفعّله", needsVerification: true });
     }
     const token = signToken(user._id);
     res.json({

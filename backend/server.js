@@ -5,8 +5,8 @@ app.set("trust proxy", 1);
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
-// const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
-
+const { generalLimiter, authLimiter, examLimiter } = require("./middleware/rateLimiter");
+const notificationRoutes = require("./routes/notificationRoutes");
 const authRoutes = require("./routes/authRoutes");
 const courseRoutes = require("./routes/courseRoutes");
 const examRoutes = require("./routes/examRoutes");
@@ -30,16 +30,19 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use("/api/auth", authRoutes);
+// حماية عامة لكل الـ API من الإغراق بالطلبات، ثم حدود أضيق للمسارات الحساسة
+app.use("/api", generalLimiter);
+
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/courses", courseRoutes);
-app.use("/api/exams", examRoutes);
+app.use("/api/exams", examLimiter, examRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/certificates", certificateRoutes);
-
+app.use("/api/notifications", notificationRoutes);
 app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
 
 app.use((err, req, res, next) => {

@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false }, // ميترجعش في أي query إلا لو طلبته صراحةً بـ .select("+password")
     role: { type: String, enum: ["student", "teacher", "admin"], default: "student" },
     points: { type: Number, default: 0 }, // نقاط المنافسة
 enrolledCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],

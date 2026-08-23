@@ -5,6 +5,8 @@ const cloudinary = require("../config/cloudinary");
 const Video = require("../models/Video");
 const Course = require("../models/Course");
 const Payment = require("../models/Payment");
+const VideoComment = require("../models/VideoComment");
+const VideoQuestion = require("../models/VideoQuestion");
 
 // السر بتاع توكن الفيديو - منفصل عن توكن تسجيل الدخول العادي
 const VIDEO_SECRET = process.env.JWT_SECRET + "_video";
@@ -40,7 +42,6 @@ exports.getVideoToken = async (req, res) => {
 };
 
 // الخطوة 2: بث الفيديو نفسه - بيتأكد من التوكن مش من تسجيل الدخول العادي
-// (عشان تاج <video> في المتصفح مايقدرش يبعت Authorization header)
 exports.streamVideo = async (req, res) => {
   try {
     const { token } = req.query;
@@ -62,7 +63,7 @@ exports.streamVideo = async (req, res) => {
 
     const filePath = path.join(__dirname, "../uploads/videos", video.localFilename);
 
-    // فيديوهات قديمة لسه متخزنة فعليًا على الديسك المحلي - بث مباشر زي ما كان
+    // فيديوهات قديمة لسه متخزنة فعليًا على الديسك المحلي
     if (fs.existsSync(filePath)) {
       const stat = fs.statSync(filePath);
       const range = req.headers.range;
@@ -88,7 +89,6 @@ exports.streamVideo = async (req, res) => {
     }
 
     // مش موجود على الديسك = الفيديو ده متخزن على Cloudinary
-    // localFilename هنا فعليًا هو الـ public_id اللي رجع وقت الرفع
     const signedUrl = cloudinary.url(video.localFilename, {
       resource_type: "video",
       type: "authenticated",
@@ -108,6 +108,112 @@ exports.markVideoWatched = async (req, res) => {
     const User = require("../models/User");
     await User.findByIdAndUpdate(req.user._id, { $addToSet: { watchedVideos: req.params.videoId } });
     res.json({ message: "تم تسجيل المشاهدة" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===== الأسئلة =====
+exports.getQuestions = async (req, res) => {
+  try {
+    const questions = await VideoQuestion.find({ video: req.params.videoId }).sort({ createdAt: -1 });
+    res.json(questions);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.addQuestion = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "اكتب السؤال" });
+
+    const question = await VideoQuestion.create({
+      video: req.params.videoId,
+      user: req.user._id,
+      userName: req.user.name,
+      text: text.trim(),
+    });
+
+    // إشعار للمدرّس بتاع الكورس إن فيه سؤال جديد
+    const Video = require("../models/Video");
+    const Course = require("../models/Course");
+    const video = await Video.findById(req.params.videoId);
+    const course = await Course.findById(video.course);
+
+    if (course && course.teacher) {
+      const { createNotification } = require("./notificationController");
+      await createNotification({
+        user: course.teacher,
+        type: "new_question",
+        message: `${req.user.name} سأل سؤال جديد في فيديو "${video.title}"`,
+        link: `/courses/video/${video._id}`,
+      });
+    }
+
+    res.status(201).json(question);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===== التعليقات =====
+exports.getComments = async (req, res) => {
+  try {
+    const comments = await VideoComment.find({ video: req.params.videoId }).sort({ createdAt: -1 });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.addComment = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "اكتب تعليقك" });
+
+    const comment = await VideoComment.create({
+      video: req.params.videoId,
+      user: req.user._id,
+      userName: req.user.name,
+      text: text.trim(),
+    });
+    res.status(201).json(comment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// المدرّس/الأدمن بيرد على تعليق معين
+exports.replyToComment = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ message: "اكتب الرد" });
+
+    const comment = await VideoComment.findById(commentId);
+    if (!comment) return res.status(404).json({ message: "التعليق مش موجود" });
+
+    comment.replies.push({
+      user: req.user._id,
+      userName: req.user.name,
+      text: text.trim(),
+      isTeacherReply: true,
+    });
+    await comment.save();
+
+    // إشعار لصاحب الكومنت الأصلي (لو مش هو نفسه اللي بيرد)
+    if (comment.user.toString() !== req.user._id.toString()) {
+      const { createNotification } = require("./notificationController");
+      await createNotification({
+        user: comment.user,
+        type: "new_comment_reply",
+        message: `${req.user.name} رد على تعليقك`,
+        link: `/courses/video/${comment.video}`,
+      });
+    }
+
+    res.status(201).json(comment);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

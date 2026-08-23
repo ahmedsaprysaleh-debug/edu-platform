@@ -3,6 +3,7 @@ const {
   createExam, updateExam, deleteExam, addQuestion, updateQuestion, deleteQuestion,
   getExamForStudent, getExamForTeacher, startExam, submitExam, reportTabSwitch,
   getLeaderboard, getPendingGrading, gradeEssayAnswer, bulkAddQuestionsFromText,
+  getMyMistakes,
 } = require("../controllers/examController");
 const { protect, restrictTo } = require("../middleware/auth");
 
@@ -26,5 +27,8 @@ router.get("/leaderboard/top", protect, getLeaderboard);
 
 router.get("/:examId/pending-grading", protect, restrictTo("teacher", "admin"), getPendingGrading);
 router.patch("/submissions/:submissionId/grade", protect, restrictTo("teacher", "admin"), gradeEssayAnswer);
+
+// أسئلة الطالب الغلط - عبر كل الامتحانات وكل الكورسات
+router.get("/mistakes/mine", protect, restrictTo("student"), getMyMistakes);
 
 module.exports = router;

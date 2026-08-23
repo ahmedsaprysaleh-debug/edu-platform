@@ -35,50 +35,58 @@ exports.getCourseById = async (req, res) => {
 
 // تعديل كورس - المدرّس بتاعه بس أو الأدمن
 exports.updateCourse = async (req, res) => {
-  const course = await Course.findById(req.params.id);
-  if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
-  if (req.user.role !== "admin" && course.teacher.toString() !== req.user._id.toString()) {
-    return res.status(403).json({ message: "مش معاك صلاحية تعدّل الكورس ده" });
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
+    if (req.user.role !== "admin" && course.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "مش معاك صلاحية تعدّل الكورس ده" });
+    }
+    Object.assign(course, req.body);
+    await course.save();
+    res.json(course);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-  Object.assign(course, req.body);
-  await course.save();
-  res.json(course);
 };
 
 // حذف كورس - وكل الفيديوهات والامتحانات والأسئلة التابعة له
 exports.deleteCourse = async (req, res) => {
-  const course = await Course.findById(req.params.id);
-  if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
-  if (req.user.role !== "admin" && course.teacher.toString() !== req.user._id.toString()) {
-    return res.status(403).json({ message: "مش معاك صلاحية تحذف الكورس ده" });
-  }
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
+    if (req.user.role !== "admin" && course.teacher.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "مش معاك صلاحية تحذف الكورس ده" });
+    }
 
-  const videos = await Video.find({ course: course._id });
-  videos.forEach((v) => {
-    if (v.localFilename) {
-      const p = path.join(__dirname, "../uploads/videos", v.localFilename);
+    const videos = await Video.find({ course: course._id });
+    videos.forEach((v) => {
+      if (v.localFilename) {
+        const p = path.join(__dirname, "../uploads/videos", v.localFilename);
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      }
+    });
+    await Video.deleteMany({ course: course._id });
+
+    const exams = await Exam.find({ course: course._id });
+    await Question.deleteMany({ exam: { $in: exams.map((e) => e._id) } });
+    await Exam.deleteMany({ course: course._id });
+
+    if (course.coverImageFilename) {
+      const p = path.join(__dirname, "../uploads/images", course.coverImageFilename);
       if (fs.existsSync(p)) fs.unlinkSync(p);
     }
-  });
-  await Video.deleteMany({ course: course._id });
 
-  const exams = await Exam.find({ course: course._id });
-  await Question.deleteMany({ exam: { $in: exams.map((e) => e._id) } });
-  await Exam.deleteMany({ course: course._id });
-
-  if (course.coverImageFilename) {
-    const p = path.join(__dirname, "../uploads/images", course.coverImageFilename);
-    if (fs.existsSync(p)) fs.unlinkSync(p);
+    await course.deleteOne();
+    res.json({ message: "تم حذف الكورس وكل محتواه" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-
-  await course.deleteOne();
-  res.json({ message: "تم حذف الكورس وكل محتواه" });
 };
 
 // إضافة فيديو لكورس (المدرّس بس)
 exports.addVideo = async (req, res) => {
   try {
-    const { title, description, localFilename, videoUrl, order } = req.body;
+    const { title, description, localFilename, videoUrl, order, attachmentUrl, attachmentTitle } = req.body;
 
     if (!videoUrl && !localFilename) {
       return res.status(400).json({ message: "لازم تحط رابط الفيديو" });
@@ -89,6 +97,8 @@ exports.addVideo = async (req, res) => {
       course: req.params.courseId,
       videoUrl: videoUrl || `local:${localFilename}`,
       localFilename: localFilename || undefined,
+      attachmentUrl: attachmentUrl || undefined,
+      attachmentTitle: attachmentTitle || undefined,
     });
     res.status(201).json(video);
   } catch (err) {
@@ -97,24 +107,36 @@ exports.addVideo = async (req, res) => {
 };
 
 exports.updateVideo = async (req, res) => {
-  const { title, description, order, videoUrl } = req.body;
-  const update = { title, description, order };
-  if (videoUrl) update.videoUrl = videoUrl;
-  const video = await Video.findByIdAndUpdate(
-    req.params.videoId, update, { new: true }
-  );
-  if (!video) return res.status(404).json({ message: "الفيديو مش موجود" });
-}
+  try {
+    const { title, description, order, videoUrl, attachmentUrl, attachmentTitle } = req.body;
+    const update = { title, description, order };
+    if (videoUrl) update.videoUrl = videoUrl;
+    // نسمح نمسح المرفق لو المدرّس بعت قيمة فاضية عن قصد، مش بس لو مبعتش الحقل خالص
+    if (attachmentUrl !== undefined) update.attachmentUrl = attachmentUrl;
+    if (attachmentTitle !== undefined) update.attachmentTitle = attachmentTitle;
+    const video = await Video.findByIdAndUpdate(
+      req.params.videoId, update, { new: true }
+    );
+    if (!video) return res.status(404).json({ message: "الفيديو مش موجود" });
+    res.json(video);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
 
 exports.deleteVideo = async (req, res) => {
-  const video = await Video.findById(req.params.videoId);
-  if (!video) return res.status(404).json({ message: "الفيديو مش موجود" });
-  if (video.localFilename) {
-    const p = path.join(__dirname, "../uploads/videos", video.localFilename);
-    if (fs.existsSync(p)) fs.unlinkSync(p);
+  try {
+    const video = await Video.findById(req.params.videoId);
+    if (!video) return res.status(404).json({ message: "الفيديو مش موجود" });
+    if (video.localFilename) {
+      const p = path.join(__dirname, "../uploads/videos", video.localFilename);
+      if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    await video.deleteOne();
+    res.json({ message: "تم حذف الفيديو" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
-  await video.deleteOne();
-  res.json({ message: "تم حذف الفيديو" });
 };
 
 // عرض فيديوهات الكورس - بيتشيك إن الطالب دافع لو الكورس مدفوع
@@ -150,20 +172,28 @@ exports.getCourseVideos = async (req, res) => {
   }
 };
 exports.enrollFreeCourse = async (req, res) => {
-  const course = await Course.findById(req.params.id);
-  if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
-  if (!course.isFree) return res.status(403).json({ message: "الكورس ده مش مجاني" });
+  try {
+    const course = await Course.findById(req.params.id);
+    if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
+    if (!course.isFree) return res.status(403).json({ message: "الكورس ده مش مجاني" });
 
-  const User = require("../models/User");
-  await User.findByIdAndUpdate(req.user._id, { $addToSet: { enrolledCourses: course._id } });
-  res.json({ message: "تم الاشتراك في الكورس ✅" });
+    const User = require("../models/User");
+    await User.findByIdAndUpdate(req.user._id, { $addToSet: { enrolledCourses: course._id } });
+    res.json({ message: "تم الاشتراك في الكورس ✅" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.getMyCourses = async (req, res) => {
-  const User = require("../models/User");
-  const user = await User.findById(req.user._id).populate({
-    path: "enrolledCourses",
-    populate: { path: "teacher", select: "name" },
-  });
-  res.json(user.enrolledCourses);
+  try {
+    const User = require("../models/User");
+    const user = await User.findById(req.user._id).populate({
+      path: "enrolledCourses",
+      populate: { path: "teacher", select: "name" },
+    });
+    res.json(user.enrolledCourses);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

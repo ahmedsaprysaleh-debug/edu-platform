@@ -46,6 +46,20 @@ exports.initiatePayment = async (req, res) => {
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
 
+    // نمنع الطالب من الدفع مرتين لنفس الكورس (لو ضغط زرار الدفع مرتين أو رجع لصفحة الدفع بعد ما دفع فعلاً)
+    const alreadyPaid = await Payment.findOne({
+      user: req.user._id,
+      course: course._id,
+      status: "paid",
+    });
+    if (alreadyPaid) {
+      return res.status(400).json({ message: "أنت مشترك في الكورس ده بالفعل" });
+    }
+
+    if ((method === "vodafone_cash" || method === "instapay") && !mobileNumber) {
+      return res.status(400).json({ message: "لازم تدخل رقم الموبايل عشان تكمل الدفع بالمحفظة" });
+    }
+
     const amountCents = Math.round(course.price * 100);
     const authToken = await getAuthToken();
 
@@ -65,7 +79,7 @@ exports.initiatePayment = async (req, res) => {
       first_name: req.user.name.split(" ")[0] || "Student",
       last_name: req.user.name.split(" ")[1] || "User",
       email: req.user.email,
-      phone_number: mobileNumber || "+201027218581",
+      phone_number: mobileNumber || "+20000000000",
       apartment: "NA", floor: "NA", street: "NA", building: "NA",
       city: "Cairo", country: "EG", state: "NA",
     };
@@ -128,9 +142,9 @@ exports.paymobWebhook = async (req, res) => {
       payment.paymobTransactionId = data.id;
       await payment.save();
       if (data.success) {
-  const User = require("../models/User");
-  await User.findByIdAndUpdate(payment.user, { $addToSet: { enrolledCourses: payment.course } });
-}
+        const User = require("../models/User");
+        await User.findByIdAndUpdate(payment.user, { $addToSet: { enrolledCourses: payment.course } });
+      }
     }
 
     res.status(200).json({ received: true });
@@ -140,6 +154,10 @@ exports.paymobWebhook = async (req, res) => {
 };
 
 exports.getMyPayments = async (req, res) => {
-  const payments = await Payment.find({ user: req.user._id }).populate("course", "title price");
-  res.json(payments);
+  try {
+    const payments = await Payment.find({ user: req.user._id }).populate("course", "title price");
+    res.json(payments);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

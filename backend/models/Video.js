@@ -11,6 +11,9 @@ const videoSchema = new mongoose.Schema(
     localFilename: String,
     duration: Number, // بالثواني
     order: { type: Number, default: 0 },
+    // ملف شرح مرفق (اختياري) - رابط خارجي زي Google Drive، بيظهر كزرار تحميل تحت الفيديو
+    attachmentUrl: String,
+    attachmentTitle: String,
   },
   { timestamps: true }
 );
