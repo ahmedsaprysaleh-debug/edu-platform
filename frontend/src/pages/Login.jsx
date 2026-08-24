@@ -81,7 +81,7 @@ export default function Login() {
               type={showPassword ? "text" : "password"}
               placeholder="الباسورد"
               required
-              style={{ width: "100%", paddingLeft: 36, boxSizing: "border-box" }}
+              style={{ width: "100%", paddingRight: 36, boxSizing: "border-box" }}
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
@@ -91,7 +91,7 @@ export default function Login() {
               aria-label={showPassword ? "إخفاء الباسورد" : "إظهار الباسورد"}
               style={{
                 position: "absolute",
-                left: 8,
+                right: 8,
                 top: "50%",
                 transform: "translateY(-50%)",
                 background: "none",

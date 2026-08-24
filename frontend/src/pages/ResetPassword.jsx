@@ -32,7 +32,7 @@ export default function ResetPassword() {
               placeholder="كلمة المرور الجديدة"
               required
               minLength={6}
-              style={{ width: "100%", paddingLeft: 36, boxSizing: "border-box" }}
+              style={{ width: "100%", paddingRight: 36, boxSizing: "border-box" }}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -42,7 +42,7 @@ export default function ResetPassword() {
               aria-label={showPassword ? "إخفاء الباسورد" : "إظهار الباسورد"}
               style={{
                 position: "absolute",
-                left: 8,
+                right: 8,
                 top: "50%",
                 transform: "translateY(-50%)",
                 background: "none",

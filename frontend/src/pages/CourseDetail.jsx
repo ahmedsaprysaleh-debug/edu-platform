@@ -103,7 +103,7 @@ function QuestionsSection({ videoId, videoTitle }) {
       setNewQuestion("");
       loadQuestions();
     } catch (err) {
-      showToast("حصل خطأ في إضافة السؤال", "error");
+      showToast(err.response?.data?.message || "حصل خطأ في إضافة السؤال", "error");
     } finally {
       setLoadingQ(false);
     }
@@ -120,7 +120,7 @@ function QuestionsSection({ videoId, videoTitle }) {
       setNewComment("");
       loadComments();
     } catch (err) {
-      showToast("حصل خطأ في إضافة التعليق", "error");
+      showToast(err.response?.data?.message || "حصل خطأ في إضافة التعليق", "error");
     } finally {
       setLoadingC(false);
     }
@@ -363,20 +363,39 @@ export default function CourseDetail() {
   const [course, setCourse] = useState(null);
   const [videos, setVideos] = useState([]);
   const [locked, setLocked] = useState(false);
+  const [lockedReason, setLockedReason] = useState(""); // "enroll" | "payment"
   const [enrolling, setEnrolling] = useState(false);
   const [enrolled, setEnrolled] = useState(false);
   const { showToast } = useToast();
 
   const loadVideos = () => {
+    setLocked(false);
     api.get(`/courses/${id}/videos`)
-      .then((res) => setVideos(res.data))
+      .then((res) => {
+        setVideos(res.data);
+        setLocked(false);
+      })
       .catch((err) => {
-        if (err.response?.status === 403) setLocked(true);
+        if (err.response?.status === 403) {
+          setLocked(true);
+          setLockedReason(err.response.data?.needsEnroll ? "enroll" : "payment");
+        }
       });
+  };
+
+  // نتأكد من حالة الاشتراك الحقيقية من السيرفر (مش state محلي بيتصفّر كل ما الصفحة تتفتح تاني)
+  const loadEnrollmentStatus = () => {
+    api.get("/courses/my")
+      .then((res) => {
+        const isEnrolled = (res.data || []).some((c) => c._id === id);
+        setEnrolled(isEnrolled);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
     api.get(`/courses/${id}`).then((res) => setCourse(res.data));
+    loadEnrollmentStatus();
     loadVideos();
   }, [id]);
 
@@ -386,6 +405,7 @@ export default function CourseDetail() {
       await api.post(`/courses/${id}/enroll`);
       showToast("تم الاشتراك في الكورس ✅");
       setEnrolled(true);
+      loadVideos(); // نحاول نجيب الفيديوهات تاني دلوقتي بعد ما بقى مشترك
     } catch (err) {
       showToast(err.response?.data?.message || "حصل خطأ", "error");
     } finally {
@@ -432,11 +452,14 @@ export default function CourseDetail() {
           )}
           {enrolled && <p style={{ color: "#16a34a" }}>✅ انت مشترك في الكورس ده</p>}
 
-          {locked && (
+          {locked && lockedReason === "payment" && (
             <>
               <p style={{ color: "var(--danger)" }}>🔒 لازم تدفع تمن الكورس عشان تشوف الفيديوهات</p>
               <Link className="btn" to={`/payment/${course._id}`}>ادفع دلوقتي</Link>
             </>
+          )}
+          {locked && lockedReason === "enroll" && (
+            <p style={{ color: "var(--danger)" }}>🔒 اشترك في الكورس الأول عشان تقدر تشوف الفيديوهات</p>
           )}
 
           {videos.length > 0 && (
