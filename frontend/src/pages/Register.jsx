@@ -34,46 +34,33 @@ export default function Register() {
           <input type="email" placeholder="الإيميل" required
             value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
 
-          <div style={{ position: "relative", marginBottom: "12px" }}>
+          <div style={{ position: "relative" }}>
             <input
               type={showPassword ? "text" : "password"}
               placeholder="الباسورد"
-              value={form.password} /* ← تم التعديل هنا لتقرأ من الـ form */
-              onChange={(e) => setForm({ ...form, password: e.target.value })} /* ← تم التعديل هنا لتحديث الـ form */
               required
-              style={{
-                width: "100%",
-                padding: "10px 45px 10px 10px",
-                margin: "6px 0",
-                borderRadius: "10px",
-                border: "1px solid var(--card-border)",
-                background: "var(--input-bg)",
-                backdropFilter: "blur(var(--blur))",
-                color: "var(--text)",
-                fontFamily: "inherit",
-                fontSize: "15px",
-                boxSizing: "border-box",
-              }}
+              style={{ width: "100%", paddingRight: 36, boxSizing: "border-box" }}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
             <button
               type="button"
-              onClick={() => setShowPassword(!showPassword)}
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "إخفاء الباسورد" : "إظهار الباسورد"}
               style={{
                 position: "absolute",
-                right: "10px",
+                right: 8,
                 top: "50%",
                 transform: "translateY(-50%)",
                 background: "none",
                 border: "none",
                 cursor: "pointer",
-                fontSize: "20px",
-                color: "var(--text)",
-                padding: "0",
-                zIndex: "10",
-                pointerEvents: "auto",
+                fontSize: 16,
+                lineHeight: 1,
+                padding: 4,
               }}
             >
-              {showPassword ? "👁️" : "🙈"}
+              {showPassword ? "🙈" : "👁️"}
             </button>
           </div>
 
