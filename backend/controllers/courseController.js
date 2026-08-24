@@ -139,25 +139,39 @@ exports.deleteVideo = async (req, res) => {
   }
 };
 
-// عرض فيديوهات الكورس - بيتشيك إن الطالب دافع لو الكورس مدفوع
+// عرض فيديوهات الكورس - بيتشيك إن الطالب مشترك (للكورس المجاني) أو دافع (للكورس المدفوع)
 exports.getCourseVideos = async (req, res) => {
   try {
     const course = await Course.findById(req.params.courseId);
     if (!course) return res.status(404).json({ message: "الكورس مش موجود" });
 
-    if (!course.isFree && req.user.role === "student") {
-      const paid = await Payment.findOne({
-        user: req.user._id,
-        course: course._id,
-        status: "paid",
-      });
-      if (!paid) {
-        return res.status(403).json({ message: "لازم تدفع تمن الكورس الأول عشان تشوف الفيديوهات" });
+    const User = require("../models/User");
+
+    if (req.user.role === "student") {
+      if (course.isFree) {
+        const user = await User.findById(req.user._id).select("enrolledCourses");
+        const isEnrolled = (user?.enrolledCourses || []).some(
+          (cid) => cid.toString() === course._id.toString()
+        );
+        if (!isEnrolled) {
+          return res.status(403).json({
+            message: "لازم تشترك في الكورس الأول عشان تشوف الفيديوهات",
+            needsEnroll: true,
+          });
+        }
+      } else {
+        const paid = await Payment.findOne({
+          user: req.user._id,
+          course: course._id,
+          status: "paid",
+        });
+        if (!paid) {
+          return res.status(403).json({ message: "لازم تدفع تمن الكورس الأول عشان تشوف الفيديوهات" });
+        }
       }
     }
 
     const videos = await Video.find({ course: req.params.courseId }).sort("order");
-    const User = require("../models/User");
     const user = await User.findById(req.user._id).select("watchedVideos");
     const watchedIds = (user?.watchedVideos || []).map((id) => id.toString());
 

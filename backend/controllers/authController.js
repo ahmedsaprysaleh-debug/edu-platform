@@ -20,24 +20,25 @@ exports.register = async (req, res) => {
       finalRole = "teacher";
     }
 
-    const verificationToken = crypto.randomBytes(32).toString("hex");
+    // ✅ تعديل: جعل المستخدمين يدخلون مباشرة بدون تفعيل إيميل
     const user = await User.create({
-      name, email, password, role: finalRole, verificationToken,
+      name,
+      email,
+      password,
+      role: finalRole,
+      isVerified: true,  // ← المستخدم يدخل مباشرة
     });
-
-    const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
-    try {
-      await sendVerificationEmail(user.email, verifyUrl);
-    } catch (mailErr) {
-      console.error("فشل إرسال إيميل التفعيل - تأكد من إعدادات SMTP في .env:", mailErr.message);
-    }
 
     const token = signToken(user._id);
     res.status(201).json({
       token,
       user: {
-        id: user._id, name: user.name, email: user.email, role: user.role,
-        points: user.points, isVerified: user.isVerified,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        points: user.points,
+        isVerified: user.isVerified,
       },
     });
   } catch (err) {
@@ -77,13 +78,10 @@ exports.resendVerification = async (req, res) => {
   }
 };
 
-// نسخة عامة (من غير تسجيل دخول) - مهمة لأن المستخدم مش مفعّل يبقى مايقدرش يسجل دخول أصلاً
-// عشان يستخدم resendVerification العادية (اللي بتحتاج توكن دخول)
 exports.resendVerificationByEmail = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    // برد بنفس الرسالة سواء الإيميل موجود ولا لأ، عشان محدش يعرف مين مسجل في الموقع
     if (!user || user.isVerified) {
       return res.json({ message: "لو الإيميل ده مسجل ومش مفعّل، هيوصلك إيميل تفعيل جديد" });
     }
@@ -107,7 +105,6 @@ exports.resendVerificationByEmail = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    // الباسورد مخفي بشكل افتراضي (select:false) في الموديل - لازم نطلبه صراحةً هنا عشان نقارنه
     const user = await User.findOne({ email }).select("+password");
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: "الإيميل أو الباسورد غلط" });
@@ -115,15 +112,20 @@ exports.login = async (req, res) => {
     if (!user.isActive) {
       return res.status(403).json({ message: "حسابك متعطل، تواصل مع الإدارة" });
     }
-    if (!user.isVerified) {
-      return res.status(403).json({ message: "حسابك لسه مش مفعّل، افتح إيميلك وفعّله", needsVerification: true });
-    }
+    
+    // ✅ تعديل: السماح بالدخول حتى لو لم يتم تفعيل الإيميل
+    // (الشرط محذوف)
+
     const token = signToken(user._id);
     res.json({
       token,
       user: {
-        id: user._id, name: user.name, email: user.email, role: user.role,
-        points: user.points, isVerified: user.isVerified,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        points: user.points,
+        isVerified: user.isVerified,
       },
     });
   } catch (err) {
@@ -135,17 +137,15 @@ exports.me = async (req, res) => {
   res.json({ user: req.user });
 };
 
-// طلب إعادة تعيين الباسورد - بيبعت رابط فيه توكن مؤقت على الإيميل
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-    // برد بنفس الرسالة سواء الإيميل موجود ولا لأ، عشان محدش يعرف مين مسجل في الموقع
     if (!user) return res.json({ message: "لو الإيميل ده مسجل، هيوصلك رابط إعادة التعيين" });
 
     const rawToken = crypto.randomBytes(32).toString("hex");
     user.resetPasswordToken = crypto.createHash("sha256").update(rawToken).digest("hex");
-    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000; // 30 دقيقة
+    user.resetPasswordExpires = Date.now() + 30 * 60 * 1000;
     await user.save();
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${rawToken}`;
@@ -170,7 +170,7 @@ exports.resetPassword = async (req, res) => {
     });
     if (!user) return res.status(400).json({ message: "الرابط غير صالح أو منتهي الصلاحية" });
 
-    user.password = password; // هيتشفر تلقائي من الـ pre-save hook
+    user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
