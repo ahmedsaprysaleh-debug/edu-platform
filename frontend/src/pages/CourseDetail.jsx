@@ -98,7 +98,8 @@ function QuestionsSection({ videoId, videoTitle }) {
 
     setLoadingQ(true);
     try {
-      await api.post(`/videos/${videoId}/questions`, { text: newQuestion });
+// التعديل الصحيح داخل ملف صفحة تفاصيل الكورس/الفيديو
+await api.post(`/courses/videos/${videoId}/questions`, { content: text });
       showToast("تم إضافة السؤال ✅");
       setNewQuestion("");
       loadQuestions();
