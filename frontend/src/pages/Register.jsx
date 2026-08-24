@@ -34,35 +34,48 @@ export default function Register() {
           <input type="email" placeholder="الإيميل" required
             value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
 
-          <div style={{ position: "relative" }}>
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="الباسورد"
-              required
-              style={{ width: "100%", paddingRight: 36, boxSizing: "border-box" }}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "إخفاء الباسورد" : "إظهار الباسورد"}
-              style={{
-                position: "absolute",
-                right: 8,
-                top: "50%",
-                transform: "translateY(-50%)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontSize: 16,
-                lineHeight: 1,
-                padding: 4,
-              }}
-            >
-              {showPassword ? "🙈" : "👁️"}
-            </button>
-          </div>
+<div style={{ position: "relative", marginBottom: "12px" }}>
+  <input
+    type={showPassword ? "text" : "password"}
+    placeholder="الباسورد"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    required
+    style={{
+      width: "100%",
+      padding: "10px 45px 10px 10px",  // ← تغيير
+      margin: "6px 0",
+      borderRadius: "10px",
+      border: "1px solid var(--card-border)",
+      background: "var(--input-bg)",
+      backdropFilter: "blur(var(--blur))",
+      color: "var(--text)",
+      fontFamily: "inherit",
+      fontSize: "15px",
+      boxSizing: "border-box",  // ← أضيف هذا
+    }}
+  />
+  <button
+    type="button"
+    onClick={() => setShowPassword(!showPassword)}
+    style={{
+      position: "absolute",
+      right: "10px",
+      top: "50%",
+      transform: "translateY(-50%)",
+      background: "none",
+      border: "none",
+      cursor: "pointer",
+      fontSize: "20px",
+      color: "var(--text)",
+      padding: "0",
+      zIndex: "10",  // ← أضيف هذا
+      pointerEvents: "auto",  // ← أضيف هذا
+    }}
+  >
+    {showPassword ? "👁️" : "🙈"}
+  </button>
+</div>
 
           <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
             <option value="student">طالب</option>
