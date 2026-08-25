@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect, createContext, useContext } from "react";
-import api from "./api/axios"; // تأكد أن ملف axios موجود في هذا المسار
+import api from "./api/axios";
 import { AppSettingsProvider, useSettings } from "./AppSettings";
 import { ToastProvider } from "./Toast";
 
@@ -128,7 +128,7 @@ function NotificationBell() {
           }}>
             <div style={{
               padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex",
-              justifySpaceBetween: "space-between", alignItems: "center",
+              justifyContent: "space-between", alignItems: "center",
             }}>
               <strong style={{ fontSize: 14 }}>الإشعارات</strong>
               {notifications.some((n) => !n.read) && (

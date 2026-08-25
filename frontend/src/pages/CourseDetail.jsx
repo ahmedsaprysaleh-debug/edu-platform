@@ -63,6 +63,7 @@ function QuestionsSection({ videoId, videoTitle }) {
   const [newComment, setNewComment] = useState("");
   const [loadingQ, setLoadingQ] = useState(false);
   const [loadingC, setLoadingC] = useState(false);
+  const [fetchingData, setFetchingData] = useState(false);
   const [openReplyFor, setOpenReplyFor] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
@@ -72,8 +73,10 @@ function QuestionsSection({ videoId, videoTitle }) {
 
   useEffect(() => {
     if (isOpen) {
-      loadQuestions();
-      loadComments();
+      setFetchingData(true);
+      Promise.all([loadQuestions(), loadComments()]).finally(() => {
+        setFetchingData(false);
+      });
     }
   }, [videoId, isOpen]);
 
@@ -82,7 +85,7 @@ function QuestionsSection({ videoId, videoTitle }) {
       const res = await api.get(`/videos/${videoId}/questions`);
       setQuestions(res.data || []);
     } catch (err) {
-      console.log("مشكلة في جلب الأسئلة");
+      console.error("مشكلة في جلب الأسئلة", err);
     }
   };
 
@@ -91,7 +94,7 @@ function QuestionsSection({ videoId, videoTitle }) {
       const res = await api.get(`/videos/${videoId}/comments`);
       setComments(res.data || []);
     } catch (err) {
-      console.log("مشكلة في جلب التعليقات");
+      console.error("مشكلة في جلب التعليقات", err);
     }
   };
 
@@ -176,129 +179,135 @@ function QuestionsSection({ videoId, videoTitle }) {
             </button>
           </div>
 
-          {/* قسم الأسئلة */}
-          {activeTab === "questions" && (
-            <div>
-              <div style={{ marginBottom: 16 }}>
-                <textarea
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  placeholder="اسأل سؤالك هنا..."
-                  style={{
-                    width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
-                    backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
-                    fontSize: 14, fontFamily: "inherit", resize: "vertical",
-                  }}
-                />
-                <button className="btn" onClick={handleAddQuestion} disabled={loadingQ || !newQuestion.trim()}
-                  style={{ marginTop: 8, width: "100%" }}>
-                  {loadingQ ? "جاري الإضافة..." : "أضيف السؤال"}
-                </button>
-              </div>
-
-              {questions.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>لا توجد أسئلة حتى الآن</p>
-              ) : (
+          {fetchingData ? (
+            <Spinner />
+          ) : (
+            <>
+              {/* قسم الأسئلة */}
+              {activeTab === "questions" && (
                 <div>
-                  {questions.map((q) => (
-                    <div key={q._id} style={{
-                      padding: 12, marginBottom: 12, background: "var(--input-bg)",
-                      borderRadius: 8, borderRight: "3px solid #3b82f6",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <strong style={{ fontSize: 14 }}>{q.userName || "مستخدم"}</strong>
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          {new Date(q.createdAt).toLocaleDateString("ar-EG")}
-                        </span>
-                      </div>
-                      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{q.text || q.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+                  <div style={{ marginBottom: 16 }}>
+                    <textarea
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      placeholder="اسأل سؤالك هنا..."
+                      style={{
+                        width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
+                        backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
+                        fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                      }}
+                    />
+                    <button className="btn" onClick={handleAddQuestion} disabled={loadingQ || !newQuestion.trim()}
+                      style={{ marginTop: 8, width: "100%" }}>
+                      {loadingQ ? "جاري الإضافة..." : "أضيف السؤال"}
+                    </button>
+                  </div>
 
-          {/* قسم التعليقات */}
-          {activeTab === "comments" && (
-            <div>
-              <div style={{ marginBottom: 16 }}>
-                <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="اكتب تعليقك على الفيديو..."
-                  style={{
-                    width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
-                    backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
-                    fontSize: 14, fontFamily: "inherit", resize: "vertical",
-                  }}
-                />
-                <button className="btn" onClick={handleAddComment} disabled={loadingC || !newComment.trim()}
-                  style={{ marginTop: 8, width: "100%" }}>
-                  {loadingC ? "جاري الإضافة..." : "أضيف تعليق"}
-                </button>
-              </div>
-
-              {comments.length === 0 ? (
-                <p style={{ color: "var(--muted)" }}>لا توجد تعليقات حتى الآن</p>
-              ) : (
-                <div>
-                  {comments.map((c) => (
-                    <div key={c._id} style={{
-                      padding: 12, marginBottom: 12, background: "var(--input-bg)",
-                      borderRadius: 8, borderRight: "3px solid #22c55e",
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <strong style={{ fontSize: 14 }}>{c.userName || "مستخدم"}</strong>
-                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                          {new Date(c.createdAt).toLocaleDateString("ar-EG")}
-                        </span>
-                      </div>
-                      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.text}</p>
-
-                      {/* الردود */}
-                      {c.replies && c.replies.length > 0 && (
-                        <div style={{ marginTop: 10, paddingRight: 14, borderRight: "2px solid var(--border)" }}>
-                          {c.replies.map((r, idx) => (
-                            <div key={idx} style={{
-                              marginTop: idx === 0 ? 0 : 8, padding: 10,
-                              background: r.isTeacherReply ? "rgba(59,130,246,0.08)" : "var(--card-bg, transparent)",
-                              borderRadius: 6,
-                            }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                                <strong style={{ fontSize: 13, color: r.isTeacherReply ? "#3b82f6" : "inherit" }}>
-                                  {r.isTeacherReply && "👨‍🏫 "}{r.userName}
-                                </strong>
-                                <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                                  {new Date(r.createdAt).toLocaleDateString("ar-EG")}
-                                </span>
-                              </div>
-                              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{r.text}</p>
-                            </div>
-                          ))}
+                  {questions.length === 0 ? (
+                    <p style={{ color: "var(--muted)" }}>لا توجد أسئلة حتى الآن</p>
+                  ) : (
+                    <div>
+                      {questions.map((q) => (
+                        <div key={q._id} style={{
+                          padding: 12, marginBottom: 12, background: "var(--input-bg)",
+                          borderRadius: 8, borderRight: "3px solid #3b82f6",
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                            <strong style={{ fontSize: 14 }}>{q.userName || "مستخدم"}</strong>
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                              {new Date(q.createdAt).toLocaleDateString("ar-EG")}
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{q.text || q.content}</p>
                         </div>
-                      )}
-
-                      {canReply && (
-                        openReplyFor === c._id ? (
-                          <CommentReplyForm commentId={c._id} onReplyAdded={handleReplyAdded} />
-                        ) : (
-                          <button
-                            onClick={() => setOpenReplyFor(c._id)}
-                            style={{
-                              marginTop: 8, background: "none", border: "none", color: "var(--primary)",
-                              fontSize: 13, cursor: "pointer", padding: 0,
-                            }}
-                          >
-                            رد كمدرّس
-                          </button>
-                        )
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
-            </div>
+
+              {/* قسم التعليقات */}
+              {activeTab === "comments" && (
+                <div>
+                  <div style={{ marginBottom: 16 }}>
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="اكتب تعليقك على الفيديو..."
+                      style={{
+                        width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
+                        backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
+                        fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                      }}
+                    />
+                    <button className="btn" onClick={handleAddComment} disabled={loadingC || !newComment.trim()}
+                      style={{ marginTop: 8, width: "100%" }}>
+                      {loadingC ? "جاري الإضافة..." : "أضيف تعليق"}
+                    </button>
+                  </div>
+
+                  {comments.length === 0 ? (
+                    <p style={{ color: "var(--muted)" }}>لا توجد تعليقات حتى الآن</p>
+                  ) : (
+                    <div>
+                      {comments.map((c) => (
+                        <div key={c._id} style={{
+                          padding: 12, marginBottom: 12, background: "var(--input-bg)",
+                          borderRadius: 8, borderRight: "3px solid #22c55e",
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                            <strong style={{ fontSize: 14 }}>{c.userName || "مستخدم"}</strong>
+                            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                              {new Date(c.createdAt).toLocaleDateString("ar-EG")}
+                            </span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.text}</p>
+
+                          {/* الردود */}
+                          {c.replies && c.replies.length > 0 && (
+                            <div style={{ marginTop: 10, paddingRight: 14, borderRight: "2px solid var(--border)" }}>
+                              {c.replies.map((r, idx) => (
+                                <div key={idx} style={{
+                                  marginTop: idx === 0 ? 0 : 8, padding: 10,
+                                  background: r.isTeacherReply ? "rgba(59,130,246,0.08)" : "var(--card-bg, transparent)",
+                                  borderRadius: 6,
+                                }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                    <strong style={{ fontSize: 13, color: r.isTeacherReply ? "#3b82f6" : "inherit" }}>
+                                      {r.isTeacherReply && "👨‍🏫 "}{r.userName}
+                                    </strong>
+                                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                                      {new Date(r.createdAt).toLocaleDateString("ar-EG")}
+                                    </span>
+                                  </div>
+                                  <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{r.text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {canReply && (
+                            openReplyFor === c._id ? (
+                              <CommentReplyForm commentId={c._id} onReplyAdded={handleReplyAdded} />
+                            ) : (
+                              <button
+                                onClick={() => setOpenReplyFor(c._id)}
+                                style={{
+                                  marginTop: 8, background: "none", border: "none", color: "var(--primary)",
+                                  fontSize: 13, cursor: "pointer", padding: 0,
+                                }}
+                              >
+                                رد كمدرّس
+                              </button>
+                            )
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -307,6 +316,7 @@ function QuestionsSection({ videoId, videoTitle }) {
 }
 
 function toEmbedUrl(url) {
+  if (!url) return "";
   if (url.includes("youtu.be/")) {
     const id = url.split("youtu.be/")[1].split(/[?&]/)[0];
     return `https://www.youtube.com/embed/${id}`;
@@ -324,15 +334,21 @@ function toEmbedUrl(url) {
 
 function ProtectedVideo({ video, onWatched }) {
   const [streamUrl, setStreamUrl] = useState(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-    api.post(`/videos/${video._id}/token`).then((res) => {
-      if (isMounted) {
-        const url = res.data.streamUrl;
-        setStreamUrl(url.startsWith("http") ? url : `${api.defaults.baseURL.replace("/api", "")}${url}`);
-      }
-    });
+    setError(false);
+    api.post(`/videos/${video._id}/token`)
+      .then((res) => {
+        if (isMounted) {
+          const url = res.data.streamUrl;
+          setStreamUrl(url.startsWith("http") ? url : `${api.defaults.baseURL.replace("/api", "")}${url}`);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setError(true);
+      });
     return () => { isMounted = false; };
   }, [video._id]);
 
@@ -345,7 +361,9 @@ function ProtectedVideo({ video, onWatched }) {
   return (
     <div className="card" style={{ marginTop: 16 }}>
       <h4>{video.title} {video.watched && <span style={{ color: "#16a34a" }}>✅ اتفرجت عليه</span>}</h4>
-      {streamUrl ? (
+      {error ? (
+        <p style={{ color: "var(--danger)" }}>⚠️ تعذر تحميل الفيديو. رجاءً المحاولة لاحقاً.</p>
+      ) : streamUrl ? (
         isEmbed ? (
           <iframe
             src={toEmbedUrl(streamUrl)}
@@ -393,7 +411,7 @@ export default function CourseDetail() {
 
   const loadVideos = () => {
     setLocked(false);
-    api.get(`/courses/${id}/videos`)
+    return api.get(`/courses/${id}/videos`)
       .then((res) => {
         setVideos(res.data);
         setLocked(false);
@@ -407,13 +425,13 @@ export default function CourseDetail() {
   };
 
   const loadExams = () => {
-    api.get(`/courses/${id}/exams`)
+    return api.get(`/courses/${id}/exams`)
       .then((res) => setExams(res.data || []))
       .catch(() => {});
   };
 
   const loadEnrollmentStatus = () => {
-    api.get("/courses/my")
+    return api.get("/courses/my")
       .then((res) => {
         const isEnrolled = (res.data || []).some((c) => c._id === id);
         setEnrolled(isEnrolled);
@@ -425,6 +443,7 @@ export default function CourseDetail() {
     setCourse(null);
     setVideos([]);
     setExams([]);
+
     api.get(`/courses/${id}`).then((res) => setCourse(res.data));
     loadEnrollmentStatus();
     loadVideos();
@@ -522,7 +541,7 @@ export default function CourseDetail() {
         </div>
       </div>
 
-      {/* 📝 قسم الامتحانات (تم تصحيح justifyContent هنا) */}
+      {/* 📝 قسم الامتحانات */}
       {enrolled && exams.length > 0 && (
         <div className="card" style={{ marginTop: 16, borderRight: "4px solid #8b5cf6" }}>
           <h3 style={{ margin: 0, fontSize: 18 }}>📝 امتحانات واختبارات الكورس</h3>
