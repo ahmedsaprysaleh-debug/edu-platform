@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route, Link, Navigate,useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect, createContext, useContext } from "react";
-import api from "./api/axios";
+import api from "./api/axios"; // تأكد أن ملف axios موجود في هذا المسار
 import { AppSettingsProvider, useSettings } from "./AppSettings";
 import { ToastProvider } from "./Toast";
 
@@ -22,6 +22,7 @@ import MyCourses from "./pages/MyCourses";
 import About from "./pages/About";
 import MyMistakes from "./pages/MyMistakes";
 import StudentMistakes from "./pages/StudentMistakes";
+
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -73,7 +74,7 @@ function NotificationBell() {
   useEffect(() => {
     if (!user) return;
     loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, 30000); // كل 30 ثانية
+    const interval = setInterval(loadUnreadCount, 30000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -127,7 +128,7 @@ function NotificationBell() {
           }}>
             <div style={{
               padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex",
-              justifyContent: "space-between", alignItems: "center",
+              justifySpaceBetween: "space-between", alignItems: "center",
             }}>
               <strong style={{ fontSize: 14 }}>الإشعارات</strong>
               {notifications.some((n) => !n.read) && (
@@ -175,10 +176,10 @@ function Navbar() {
     logout();
     navigate("/login");
   };
+
   return (
     <>
       <nav className="navbar">
-        {/* الاسم + اللغة + الإضاءة + الإشعارات على اليسار */}
         <div className="navbar-left">
           <Link to="/" style={{ fontWeight: "bold", fontSize: 18 }}>
             📚 {t("appName")}
@@ -192,7 +193,6 @@ function Navbar() {
           <NotificationBell />
         </div>
 
-        {/* زرار المينيو على اليمين */}
         <button
           className="icon-btn navbar-toggle"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -201,13 +201,11 @@ function Navbar() {
         </button>
       </nav>
 
-      {/* Overlay (الخلفية الشفافة) */}
       <div 
         className={`navbar-overlay ${menuOpen ? "open" : ""}`}
         onClick={() => setMenuOpen(false)}
       ></div>
 
-      {/* الـ Sidebar (القائمة الجانبية) */}
       <div className={`navbar-drawer ${menuOpen ? "open" : ""}`}>
         <Link to="/" onClick={() => setMenuOpen(false)}>
           {t("courses")}
@@ -254,14 +252,14 @@ function Navbar() {
                 {user.role === "student" && ` - ${user.points} ${t("points")}`}
               </span>
             </div>
-        <button 
-  className="btn" 
-  onClick={() => {
-    handleLogout();
-    setMenuOpen(false);
-  }}
-  style={{ width: "100%" }}
->
+            <button 
+              className="btn" 
+              onClick={() => {
+                handleLogout();
+                setMenuOpen(false);
+              }}
+              style={{ width: "100%" }}
+            >
               {t("logout")}
             </button>
           </>
@@ -279,18 +277,27 @@ function Navbar() {
     </>
   );
 }
+
 function AppInner() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useSettings();
 
-  useEffect(() => {
+  const fetchUser = () => {
     const token = localStorage.getItem("token");
-    if (!token) { setLoading(false); return; }
+    if (!token) { 
+      setUser(null);
+      setLoading(false); 
+      return; 
+    }
     api.get("/auth/me")
       .then((res) => setUser(res.data.user))
       .catch(() => localStorage.removeItem("token"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchUser();
   }, []);
 
   const logout = () => {
@@ -301,13 +308,13 @@ function AppInner() {
   if (loading) return <div className="container">{t("loading")}</div>;
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout }}>
+    <AuthContext.Provider value={{ user, setUser, logout, fetchUser }}>
       <BrowserRouter>
         <Navbar />
         <a href="https://wa.me/+201027218581" target="_blank" rel="noreferrer" className="whatsapp-fab">💬</a>
         <VerifyBanner />
         <Routes>
-        <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
+          <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

@@ -418,6 +418,39 @@ input, select, textarea {
 .stat-box strong { font-size: 28px; display: block; margin-bottom: 4px; }
 .stat-box p { color: var(--muted); font-size: 13px; margin: 0; }
 
+/* ===== PASSWORD INPUT WRAPPER ===== */
+.password-field {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.password-field input {
+  width: 100%;
+  padding-inline-end: 45px !important; /* مساحة للأيقونة بناءً على اتجاه اللغة */
+  margin: 6px 0;
+}
+
+.password-field .toggle-password {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  inset-inline-end: 14px; /* استخدام inset-inline-end لضبط الموضع تلقائياً في RTL/LTR */
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 !important;
+  width: auto !important;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  color: var(--muted);
+}
+
 /* ===== TABLET RESPONSIVE (1024px) ===== */
 @media (max-width: 1024px) {
   .container { 
@@ -463,8 +496,8 @@ input, select, textarea {
   }
 }
 
-/* ===== ALL DEVICES ===== */
-@media (max-width: 9999px) {
+/* ===== MOBILE DEVICES ONLY (768px) ===== */
+@media (max-width: 768px) {
   .navbar-toggle {
     display: block !important;
   }
@@ -519,5 +552,5 @@ input, select, textarea {
     height: 48px;
     bottom: 16px;
     font-size: 22px;
-  }
+  } 
 }

@@ -56,30 +56,33 @@ function CommentReplyForm({ commentId, onReplyAdded }) {
 }
 
 function QuestionsSection({ videoId, videoTitle }) {
-  const [activeTab, setActiveTab] = useState("questions"); // questions | comments
+  const [activeTab, setActiveTab] = useState("questions");
   const [questions, setQuestions] = useState([]);
   const [comments, setComments] = useState([]);
   const [newQuestion, setNewQuestion] = useState("");
   const [newComment, setNewComment] = useState("");
   const [loadingQ, setLoadingQ] = useState(false);
   const [loadingC, setLoadingC] = useState(false);
-  const [openReplyFor, setOpenReplyFor] = useState(null); // commentId اللي فورم الرد بتاعه مفتوح
+  const [openReplyFor, setOpenReplyFor] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
 
   const canReply = user && (user.role === "teacher" || user.role === "admin");
 
   useEffect(() => {
-    loadQuestions();
-    loadComments();
-  }, [videoId]);
+    if (isOpen) {
+      loadQuestions();
+      loadComments();
+    }
+  }, [videoId, isOpen]);
 
   const loadQuestions = async () => {
     try {
       const res = await api.get(`/videos/${videoId}/questions`);
       setQuestions(res.data || []);
     } catch (err) {
-      console.log("فيه مشكلة في جلب الأسئلة");
+      console.log("مشكلة في جلب الأسئلة");
     }
   };
 
@@ -88,7 +91,7 @@ function QuestionsSection({ videoId, videoTitle }) {
       const res = await api.get(`/videos/${videoId}/comments`);
       setComments(res.data || []);
     } catch (err) {
-      console.log("فيه مشكلة في جلب التعليقات");
+      console.log("مشكلة في جلب التعليقات");
     }
   };
 
@@ -98,8 +101,7 @@ function QuestionsSection({ videoId, videoTitle }) {
 
     setLoadingQ(true);
     try {
-// التعديل الصحيح داخل ملف صفحة تفاصيل الكورس/الفيديو
-await api.post(`/courses/videos/${videoId}/questions`, { content: text });
+      await api.post(`/courses/videos/${videoId}/questions`, { content: newQuestion });
       showToast("تم إضافة السؤال ✅");
       setNewQuestion("");
       loadQuestions();
@@ -133,154 +135,169 @@ await api.post(`/courses/videos/${videoId}/questions`, { content: text });
   };
 
   return (
-    <div className="card" style={{ marginTop: 16, borderLeft: "4px solid #3b82f6" }}>
-      {/* التابات */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, borderBottom: "1px solid var(--border)" }}>
-        <button
-          onClick={() => setActiveTab("questions")}
-          style={{
-            flex: 1, padding: "10px 8px", background: "none", border: "none",
-            borderBottom: activeTab === "questions" ? "3px solid var(--primary)" : "3px solid transparent",
-            color: activeTab === "questions" ? "var(--primary)" : "var(--muted)",
-            fontWeight: activeTab === "questions" ? "700" : "500", cursor: "pointer", fontSize: 14,
-          }}
-        >
-          💬 أسئلة ({questions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("comments")}
-          style={{
-            flex: 1, padding: "10px 8px", background: "none", border: "none",
-            borderBottom: activeTab === "comments" ? "3px solid var(--primary)" : "3px solid transparent",
-            color: activeTab === "comments" ? "var(--primary)" : "var(--muted)",
-            fontWeight: activeTab === "comments" ? "700" : "500", cursor: "pointer", fontSize: 14,
-          }}
-        >
-          📝 تعليقات ({comments.length})
-        </button>
-      </div>
+    <div className="card" style={{ marginTop: 12, borderRight: "4px solid #3b82f6" }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: "100%", background: "none", border: "none", color: "var(--text)",
+          textAlign: "right", fontWeight: "bold", cursor: "pointer", fontSize: 14,
+          display: "flex", justifyContent: "space-between", alignItems: "center"
+        }}
+      >
+        <span>💬 الأسئلة والتعليقات الخاصة بـ ({videoTitle})</span>
+        <span>{isOpen ? "▲ إخفاء" : "▼ عرض"}</span>
+      </button>
 
-      {/* قسم الأسئلة */}
-      {activeTab === "questions" && (
-        <div>
-          <div style={{ marginBottom: 16 }}>
-            <textarea
-              value={newQuestion}
-              onChange={(e) => setNewQuestion(e.target.value)}
-              placeholder="اسأل سؤالك هنا..."
+      {isOpen && (
+        <div style={{ marginTop: 16 }}>
+          {/* التابات */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, borderBottom: "1px solid var(--border)" }}>
+            <button
+              onClick={() => setActiveTab("questions")}
               style={{
-                width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
-                backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
-                fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                flex: 1, padding: "10px 8px", background: "none", border: "none",
+                borderBottom: activeTab === "questions" ? "3px solid var(--primary)" : "3px solid transparent",
+                color: activeTab === "questions" ? "var(--primary)" : "var(--muted)",
+                fontWeight: activeTab === "questions" ? "700" : "500", cursor: "pointer", fontSize: 14,
               }}
-            />
-            <button className="btn" onClick={handleAddQuestion} disabled={loadingQ || !newQuestion.trim()}
-              style={{ marginTop: 8, width: "100%" }}>
-              {loadingQ ? "جاري الإضافة..." : "أضيف السؤال"}
+            >
+              💬 أسئلة ({questions.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("comments")}
+              style={{
+                flex: 1, padding: "10px 8px", background: "none", border: "none",
+                borderBottom: activeTab === "comments" ? "3px solid var(--primary)" : "3px solid transparent",
+                color: activeTab === "comments" ? "var(--primary)" : "var(--muted)",
+                fontWeight: activeTab === "comments" ? "700" : "500", cursor: "pointer", fontSize: 14,
+              }}
+            >
+              📝 تعليقات ({comments.length})
             </button>
           </div>
 
-          {questions.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>لا توجد أسئلة حتى الآن</p>
-          ) : (
+          {/* قسم الأسئلة */}
+          {activeTab === "questions" && (
             <div>
-              {questions.map((q) => (
-                <div key={q._id} style={{
-                  padding: 12, marginBottom: 12, background: "var(--input-bg)",
-                  borderRadius: 8, borderRight: "3px solid #3b82f6",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <strong style={{ fontSize: 14 }}>{q.userName || "مستخدم"}</strong>
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {new Date(q.createdAt).toLocaleDateString("ar-EG")}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{q.text}</p>
+              <div style={{ marginBottom: 16 }}>
+                <textarea
+                  value={newQuestion}
+                  onChange={(e) => setNewQuestion(e.target.value)}
+                  placeholder="اسأل سؤالك هنا..."
+                  style={{
+                    width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
+                    backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
+                    fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                  }}
+                />
+                <button className="btn" onClick={handleAddQuestion} disabled={loadingQ || !newQuestion.trim()}
+                  style={{ marginTop: 8, width: "100%" }}>
+                  {loadingQ ? "جاري الإضافة..." : "أضيف السؤال"}
+                </button>
+              </div>
+
+              {questions.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>لا توجد أسئلة حتى الآن</p>
+              ) : (
+                <div>
+                  {questions.map((q) => (
+                    <div key={q._id} style={{
+                      padding: 12, marginBottom: 12, background: "var(--input-bg)",
+                      borderRadius: 8, borderRight: "3px solid #3b82f6",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <strong style={{ fontSize: 14 }}>{q.userName || "مستخدم"}</strong>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {new Date(q.createdAt).toLocaleDateString("ar-EG")}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{q.text || q.content}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* قسم التعليقات */}
-      {activeTab === "comments" && (
-        <div>
-          <div style={{ marginBottom: 16 }}>
-            <textarea
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-              placeholder="اكتب تعليقك على الفيديو..."
-              style={{
-                width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
-                backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
-                fontSize: 14, fontFamily: "inherit", resize: "vertical",
-              }}
-            />
-            <button className="btn" onClick={handleAddComment} disabled={loadingC || !newComment.trim()}
-              style={{ marginTop: 8, width: "100%" }}>
-              {loadingC ? "جاري الإضافة..." : "أضيف تعليق"}
-            </button>
-          </div>
-
-          {comments.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>لا توجد تعليقات حتى الآن</p>
-          ) : (
+          {/* قسم التعليقات */}
+          {activeTab === "comments" && (
             <div>
-              {comments.map((c) => (
-                <div key={c._id} style={{
-                  padding: 12, marginBottom: 12, background: "var(--input-bg)",
-                  borderRadius: 8, borderRight: "3px solid #22c55e",
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <strong style={{ fontSize: 14 }}>{c.userName || "مستخدم"}</strong>
-                    <span style={{ fontSize: 12, color: "var(--muted)" }}>
-                      {new Date(c.createdAt).toLocaleDateString("ar-EG")}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.text}</p>
+              <div style={{ marginBottom: 16 }}>
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="اكتب تعليقك على الفيديو..."
+                  style={{
+                    width: "100%", padding: 12, borderRadius: 8, border: "1px solid var(--border)",
+                    backgroundColor: "var(--input-bg)", color: "var(--text)", minHeight: 80,
+                    fontSize: 14, fontFamily: "inherit", resize: "vertical",
+                  }}
+                />
+                <button className="btn" onClick={handleAddComment} disabled={loadingC || !newComment.trim()}
+                  style={{ marginTop: 8, width: "100%" }}>
+                  {loadingC ? "جاري الإضافة..." : "أضيف تعليق"}
+                </button>
+              </div>
 
-                  {/* الردود */}
-                  {c.replies && c.replies.length > 0 && (
-                    <div style={{ marginTop: 10, paddingRight: 14, borderRight: "2px solid var(--border)" }}>
-                      {c.replies.map((r, idx) => (
-                        <div key={idx} style={{
-                          marginTop: idx === 0 ? 0 : 8, padding: 10,
-                          background: r.isTeacherReply ? "rgba(59,130,246,0.08)" : "var(--card-bg, transparent)",
-                          borderRadius: 6,
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                            <strong style={{ fontSize: 13, color: r.isTeacherReply ? "#3b82f6" : "inherit" }}>
-                              {r.isTeacherReply && "👨‍🏫 "}{r.userName}
-                            </strong>
-                            <span style={{ fontSize: 11, color: "var(--muted)" }}>
-                              {new Date(r.createdAt).toLocaleDateString("ar-EG")}
-                            </span>
-                          </div>
-                          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{r.text}</p>
+              {comments.length === 0 ? (
+                <p style={{ color: "var(--muted)" }}>لا توجد تعليقات حتى الآن</p>
+              ) : (
+                <div>
+                  {comments.map((c) => (
+                    <div key={c._id} style={{
+                      padding: 12, marginBottom: 12, background: "var(--input-bg)",
+                      borderRadius: 8, borderRight: "3px solid #22c55e",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                        <strong style={{ fontSize: 14 }}>{c.userName || "مستخدم"}</strong>
+                        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          {new Date(c.createdAt).toLocaleDateString("ar-EG")}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.text}</p>
+
+                      {/* الردود */}
+                      {c.replies && c.replies.length > 0 && (
+                        <div style={{ marginTop: 10, paddingRight: 14, borderRight: "2px solid var(--border)" }}>
+                          {c.replies.map((r, idx) => (
+                            <div key={idx} style={{
+                              marginTop: idx === 0 ? 0 : 8, padding: 10,
+                              background: r.isTeacherReply ? "rgba(59,130,246,0.08)" : "var(--card-bg, transparent)",
+                              borderRadius: 6,
+                            }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                                <strong style={{ fontSize: 13, color: r.isTeacherReply ? "#3b82f6" : "inherit" }}>
+                                  {r.isTeacherReply && "👨‍🏫 "}{r.userName}
+                                </strong>
+                                <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                                  {new Date(r.createdAt).toLocaleDateString("ar-EG")}
+                                </span>
+                              </div>
+                              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{r.text}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      )}
 
-                  {/* زرار وفورم الرد - للمدرّس/الأدمن بس */}
-                  {canReply && (
-                    openReplyFor === c._id ? (
-                      <CommentReplyForm commentId={c._id} onReplyAdded={handleReplyAdded} />
-                    ) : (
-                      <button
-                        onClick={() => setOpenReplyFor(c._id)}
-                        style={{
-                          marginTop: 8, background: "none", border: "none", color: "var(--primary)",
-                          fontSize: 13, cursor: "pointer", padding: 0,
-                        }}
-                      >
-                        رد كمدرّس
-                      </button>
-                    )
-                  )}
+                      {canReply && (
+                        openReplyFor === c._id ? (
+                          <CommentReplyForm commentId={c._id} onReplyAdded={handleReplyAdded} />
+                        ) : (
+                          <button
+                            onClick={() => setOpenReplyFor(c._id)}
+                            style={{
+                              marginTop: 8, background: "none", border: "none", color: "var(--primary)",
+                              fontSize: 13, cursor: "pointer", padding: 0,
+                            }}
+                          >
+                            رد كمدرّس
+                          </button>
+                        )
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -288,6 +305,7 @@ await api.post(`/courses/videos/${videoId}/questions`, { content: text });
     </div>
   );
 }
+
 function toEmbedUrl(url) {
   if (url.includes("youtu.be/")) {
     const id = url.split("youtu.be/")[1].split(/[?&]/)[0];
@@ -306,13 +324,16 @@ function toEmbedUrl(url) {
 
 function ProtectedVideo({ video, onWatched }) {
   const [streamUrl, setStreamUrl] = useState(null);
-  const marked = useState(false)[0]; // مش محتاجين setter هنا
 
   useEffect(() => {
+    let isMounted = true;
     api.post(`/videos/${video._id}/token`).then((res) => {
-      const url = res.data.streamUrl;
-      setStreamUrl(url.startsWith("http") ? url : `${api.defaults.baseURL.replace("/api", "")}${url}`);
+      if (isMounted) {
+        const url = res.data.streamUrl;
+        setStreamUrl(url.startsWith("http") ? url : `${api.defaults.baseURL.replace("/api", "")}${url}`);
+      }
     });
+    return () => { isMounted = false; };
   }, [video._id]);
 
   const handlePlay = () => {
@@ -322,7 +343,7 @@ function ProtectedVideo({ video, onWatched }) {
   const isEmbed = streamUrl && (streamUrl.includes("youtu") || streamUrl.includes("vimeo"));
 
   return (
-    <div className="card">
+    <div className="card" style={{ marginTop: 16 }}>
       <h4>{video.title} {video.watched && <span style={{ color: "#16a34a" }}>✅ اتفرجت عليه</span>}</h4>
       {streamUrl ? (
         isEmbed ? (
@@ -363,8 +384,9 @@ export default function CourseDetail() {
   const { id } = useParams();
   const [course, setCourse] = useState(null);
   const [videos, setVideos] = useState([]);
+  const [exams, setExams] = useState([]);
   const [locked, setLocked] = useState(false);
-  const [lockedReason, setLockedReason] = useState(""); // "enroll" | "payment"
+  const [lockedReason, setLockedReason] = useState(""); 
   const [enrolling, setEnrolling] = useState(false);
   const [enrolled, setEnrolled] = useState(false);
   const { showToast } = useToast();
@@ -384,7 +406,12 @@ export default function CourseDetail() {
       });
   };
 
-  // نتأكد من حالة الاشتراك الحقيقية من السيرفر (مش state محلي بيتصفّر كل ما الصفحة تتفتح تاني)
+  const loadExams = () => {
+    api.get(`/courses/${id}/exams`)
+      .then((res) => setExams(res.data || []))
+      .catch(() => {});
+  };
+
   const loadEnrollmentStatus = () => {
     api.get("/courses/my")
       .then((res) => {
@@ -395,9 +422,13 @@ export default function CourseDetail() {
   };
 
   useEffect(() => {
+    setCourse(null);
+    setVideos([]);
+    setExams([]);
     api.get(`/courses/${id}`).then((res) => setCourse(res.data));
     loadEnrollmentStatus();
     loadVideos();
+    loadExams();
   }, [id]);
 
   const handleEnroll = async () => {
@@ -406,7 +437,8 @@ export default function CourseDetail() {
       await api.post(`/courses/${id}/enroll`);
       showToast("تم الاشتراك في الكورس ✅");
       setEnrolled(true);
-      loadVideos(); // نحاول نجيب الفيديوهات تاني دلوقتي بعد ما بقى مشترك
+      loadVideos();
+      loadExams();
     } catch (err) {
       showToast(err.response?.data?.message || "حصل خطأ", "error");
     } finally {
@@ -421,7 +453,7 @@ export default function CourseDetail() {
     } catch {}
   };
 
-    if (!course) return <div className="container"><Spinner /></div>;
+  if (!course) return <div className="container"><Spinner /></div>;
 
   const watchedCount = videos.filter((v) => v.watched).length;
   const progressPercent = videos.length > 0 ? Math.round((watchedCount / videos.length) * 100) : 0;
@@ -444,28 +476,41 @@ export default function CourseDetail() {
         <div style={{ padding: 16 }}>
           <h2>{course.title}</h2>
           <p>{course.description}</p>
-          <p>{course.isFree ? "مجاني" : `${course.price} جنيه`}</p>
+          <p style={{ fontWeight: "bold", fontSize: 16 }}>
+            {course.isFree ? "مجاني" : `${course.price} جنيه`}
+          </p>
 
+          {/* حالة الكورس المجاني غير المشترك */}
           {course.isFree && !enrolled && (
             <button className="btn" onClick={handleEnroll} disabled={enrolling}>
-              {enrolling ? "جاري الاشتراك..." : "اشترك في الكورس"}
+              {enrolling ? "جاري الاشتراك..." : "اشترك في الكورس (مجاناً)"}
             </button>
           )}
-          {enrolled && <p style={{ color: "#16a34a" }}>✅ انت مشترك في الكورس ده</p>}
 
+          {/* حالة الكورس المدفوع غير المشترك */}
+          {!course.isFree && !enrolled && (
+            <Link className="btn" to={`/payment/${course._id}`}>
+              شراء الكورس الآن 💳
+            </Link>
+          )}
+
+          {/* مشترك بالفعل */}
+          {enrolled && <p style={{ color: "#16a34a", fontWeight: "bold" }}>✅ أنت مشترك في هذا الكورس</p>}
+
+          {/* رسائل القفل بناءً على الـ API */}
           {locked && lockedReason === "payment" && (
-            <>
-              <p style={{ color: "var(--danger)" }}>🔒 لازم تدفع تمن الكورس عشان تشوف الفيديوهات</p>
-              <Link className="btn" to={`/payment/${course._id}`}>ادفع دلوقتي</Link>
-            </>
+            <p style={{ color: "var(--danger)", marginTop: 8 }}>🔒 يجب إتمام الدفع لرؤية المحتوى كاملًا</p>
           )}
           {locked && lockedReason === "enroll" && (
-            <p style={{ color: "var(--danger)" }}>🔒 اشترك في الكورس الأول عشان تقدر تشوف الفيديوهات</p>
+            <p style={{ color: "var(--danger)", marginTop: 8 }}>🔒 اشترك في الكورس أولاً لمشاهدة الفيديوهات والامتحانات</p>
           )}
 
-          {videos.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <p className="muted">تقدمك: {watchedCount} من {videos.length} فيديو ({progressPercent}%)</p>
+          {/* شريط التقدم */}
+          {enrolled && videos.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <p className="muted" style={{ marginBottom: 6 }}>
+                تقدمك: {watchedCount} من {videos.length} فيديو ({progressPercent}%)
+              </p>
               <div style={{ background: "var(--border)", borderRadius: 20, height: 10, overflow: "hidden" }}>
                 <div style={{
                   width: `${progressPercent}%`, height: "100%",
@@ -477,6 +522,40 @@ export default function CourseDetail() {
         </div>
       </div>
 
+      {/* 📝 قسم الامتحانات (تم تصحيح justifyContent هنا) */}
+      {enrolled && exams.length > 0 && (
+        <div className="card" style={{ marginTop: 16, borderRight: "4px solid #8b5cf6" }}>
+          <h3 style={{ margin: 0, fontSize: 18 }}>📝 امتحانات واختبارات الكورس</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+            {exams.map((exam) => (
+              <div
+                key={exam._id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: 12,
+                  background: "var(--input-bg)",
+                  borderRadius: 8,
+                }}
+              >
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 15 }}>{exam.title}</h4>
+                  <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                    ⏱️ مدة الامتحان: {exam.duration || exam.timeLimit || 30} دقيقة
+                  </span>
+                </div>
+
+                <Link to={`/exams/${exam._id}`} className="btn" style={{ padding: "8px 16px", fontSize: 13 }}>
+                  دخول الامتحان 🚀
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* فيديوهات الكورس والأسئلة */}
       {videos.map((v) => (
         <div key={v._id}>
           <ProtectedVideo video={v} onWatched={handleWatched} />
