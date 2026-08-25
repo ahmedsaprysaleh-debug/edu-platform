@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate,useNavigate } from "react-router-dom";
 import { useState, useEffect, createContext, useContext } from "react";
 import api from "./api/axios";
 import { AppSettingsProvider, useSettings } from "./AppSettings";
@@ -22,7 +22,6 @@ import MyCourses from "./pages/MyCourses";
 import About from "./pages/About";
 import MyMistakes from "./pages/MyMistakes";
 import StudentMistakes from "./pages/StudentMistakes";
-
 export const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -74,7 +73,7 @@ function NotificationBell() {
   useEffect(() => {
     if (!user) return;
     loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, 30000);
+    const interval = setInterval(loadUnreadCount, 30000); // كل 30 ثانية
     return () => clearInterval(interval);
   }, [user]);
 
@@ -176,14 +175,12 @@ function Navbar() {
     logout();
     navigate("/login");
   };
-
   return (
     <>
-      <nav className="navbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 24px" }}>
-        
-        {/* اللوجو + أدوات النظام */}
-        <div className="navbar-left" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <Link to="/" style={{ fontWeight: "bold", fontSize: 18, textDecoration: "none" }}>
+      <nav className="navbar">
+        {/* الاسم + اللغة + الإضاءة + الإشعارات على اليسار */}
+        <div className="navbar-left">
+          <Link to="/" style={{ fontWeight: "bold", fontSize: 18 }}>
             📚 {t("appName")}
           </Link>
           <button className="icon-btn" onClick={toggleLang} title="Language">
@@ -195,43 +192,7 @@ function Navbar() {
           <NotificationBell />
         </div>
 
-        {/* روابط Navigation الرئيسية للشاشات العريضة */}
-        <div className="desktop-menu" style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Link to="/" style={{ textDecoration: "none" }}>{t("courses")}</Link>
-          {user?.role === "student" && <Link to="/my-courses" style={{ textDecoration: "none" }}>كورساتي</Link>}
-          {user?.role === "student" && <Link to="/my-mistakes" style={{ textDecoration: "none" }}>أسئلتي الغلط</Link>}
-          <Link to="/leaderboard" style={{ textDecoration: "none" }}>{t("leaderboard")}</Link>
-          <Link to="/about" style={{ textDecoration: "none" }}>{t("about")}</Link>
-          {(user?.role === "teacher" || user?.role === "admin") && (
-            <Link to="/teacher" style={{ textDecoration: "none" }}>{t("teacherPanel")}</Link>
-          )}
-          {user?.role === "admin" && <Link to="/admin" style={{ textDecoration: "none" }}>{t("admin")}</Link>}
-        </div>
-
-        {/* قسم البروفايل والتسجيل لشاشات ה-Desktop */}
-        <div className="desktop-auth" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {user ? (
-            <>
-              <Link to="/profile" className="badge" style={{ textDecoration: "none", cursor: "pointer" }}>
-                👤 {user.name} {user.role === "student" && `(${user.points} ${t("points")})`}
-              </Link>
-              <button className="btn secondary" onClick={handleLogout} style={{ padding: "6px 12px", fontSize: 13, cursor: "pointer" }}>
-                {t("logout")}
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="btn secondary" style={{ textDecoration: "none", fontSize: 13 }}>
-                {t("login")}
-              </Link>
-              <Link to="/register" className="btn" style={{ textDecoration: "none", fontSize: 13 }}>
-                {t("register")}
-              </Link>
-            </>
-          )}
-        </div>
-
-        {/* زر المنيو الخاص بالموبايل */}
+        {/* زرار المينيو على اليمين */}
         <button
           className="icon-btn navbar-toggle"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -240,30 +201,47 @@ function Navbar() {
         </button>
       </nav>
 
-      {/* Drawer وقائمة المنيو المنسدلة للموبايل */}
+      {/* Overlay (الخلفية الشفافة) */}
       <div 
         className={`navbar-overlay ${menuOpen ? "open" : ""}`}
         onClick={() => setMenuOpen(false)}
       ></div>
 
+      {/* الـ Sidebar (القائمة الجانبية) */}
       <div className={`navbar-drawer ${menuOpen ? "open" : ""}`}>
-        <Link to="/" onClick={() => setMenuOpen(false)}>{t("courses")}</Link>
+        <Link to="/" onClick={() => setMenuOpen(false)}>
+          {t("courses")}
+        </Link>
         {user?.role === "student" && (
-          <Link to="/my-courses" onClick={() => setMenuOpen(false)}>كورساتي</Link>
+          <Link to="/my-courses" onClick={() => setMenuOpen(false)}>
+            كورساتي
+          </Link>
         )}
         {user?.role === "student" && (
-          <Link to="/my-mistakes" onClick={() => setMenuOpen(false)}>أسئلتي الغلط</Link>
+          <Link to="/my-mistakes" onClick={() => setMenuOpen(false)}>
+            أسئلتي الغلط
+          </Link>
         )}
-        <Link to="/leaderboard" onClick={() => setMenuOpen(false)}>{t("leaderboard")}</Link>
-        <Link to="/about" onClick={() => setMenuOpen(false)}>{t("about")}</Link>
+        <Link to="/leaderboard" onClick={() => setMenuOpen(false)}>
+          {t("leaderboard")}
+        </Link>
+        <Link to="/about" onClick={() => setMenuOpen(false)}>
+          {t("about")}
+        </Link>
         {user && (
-          <Link to="/profile" onClick={() => setMenuOpen(false)}>{t("profile")}</Link>
+          <Link to="/profile" onClick={() => setMenuOpen(false)}>
+            {t("profile")}
+          </Link>
         )}
         {(user?.role === "teacher" || user?.role === "admin") && (
-          <Link to="/teacher" onClick={() => setMenuOpen(false)}>{t("teacherPanel")}</Link>
+          <Link to="/teacher" onClick={() => setMenuOpen(false)}>
+            {t("teacherPanel")}
+          </Link>
         )}
         {user?.role === "admin" && (
-          <Link to="/admin" onClick={() => setMenuOpen(false)}>{t("admin")}</Link>
+          <Link to="/admin" onClick={() => setMenuOpen(false)}>
+            {t("admin")}
+          </Link>
         )}
 
         <hr style={{ borderColor: "rgba(255,255,255,0.1)", margin: "10px 0" }} />
@@ -272,51 +250,47 @@ function Navbar() {
           <>
             <div style={{ padding: "8px 12px", textAlign: "center" }}>
               <span className="badge">
-                {user.name} {user.role === "student" && `- ${user.points} ${t("points")}`}
+                {user.name}
+                {user.role === "student" && ` - ${user.points} ${t("points")}`}
               </span>
             </div>
-            <button 
-              className="btn" 
-              onClick={() => {
-                handleLogout();
-                setMenuOpen(false);
-              }}
-              style={{ width: "100%" }}
-            >
+        <button 
+  className="btn" 
+  onClick={() => {
+    handleLogout();
+    setMenuOpen(false);
+  }}
+  style={{ width: "100%" }}
+>
               {t("logout")}
             </button>
           </>
         ) : (
           <>
-            <Link to="/login" onClick={() => setMenuOpen(false)}>{t("login")}</Link>
-            <Link to="/register" onClick={() => setMenuOpen(false)}>{t("register")}</Link>
+            <Link to="/login" onClick={() => setMenuOpen(false)}>
+              {t("login")}
+            </Link>
+            <Link to="/register" onClick={() => setMenuOpen(false)}>
+              {t("register")}
+            </Link>
           </>
         )}
       </div>
     </>
   );
 }
-
 function AppInner() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const { t } = useSettings();
 
-  const fetchUser = () => {
+  useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) { 
-      setUser(null);
-      setLoading(false); 
-      return; 
-    }
+    if (!token) { setLoading(false); return; }
     api.get("/auth/me")
       .then((res) => setUser(res.data.user))
       .catch(() => localStorage.removeItem("token"))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchUser();
   }, []);
 
   const logout = () => {
@@ -327,13 +301,13 @@ function AppInner() {
   if (loading) return <div className="container">{t("loading")}</div>;
 
   return (
-    <AuthContext.Provider value={{ user, setUser, logout, fetchUser }}>
+    <AuthContext.Provider value={{ user, setUser, logout }}>
       <BrowserRouter>
         <Navbar />
         <a href="https://wa.me/+201027218581" target="_blank" rel="noreferrer" className="whatsapp-fab">💬</a>
         <VerifyBanner />
         <Routes>
-          <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
+        <Route path="/" element={user ? <Courses /> : <Navigate to="/login" />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
