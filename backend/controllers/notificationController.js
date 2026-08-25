@@ -23,19 +23,6 @@ exports.getMyNotifications = async (req, res) => {
   }
 };
 
-// جلب عدد الإشعارات غير المقروءة (حل مشكلة 404)
-exports.getUnreadCount = async (req, res) => {
-  try {
-    const count = await Notification.countDocuments({
-      user: req.user._id,
-      isRead: false,
-    });
-    res.json({ unreadCount: count });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
 // تحديد إشعار معين كمقروء
 exports.markAsRead = async (req, res) => {
   try {
