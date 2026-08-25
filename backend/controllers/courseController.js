@@ -111,7 +111,6 @@ exports.updateVideo = async (req, res) => {
     const { title, description, order, videoUrl, attachmentUrl, attachmentTitle } = req.body;
     const update = { title, description, order };
     if (videoUrl) update.videoUrl = videoUrl;
-    // نسمح نمسح المرفق لو المدرّس بعت قيمة فاضية عن قصد، مش بس لو مبعتش الحقل خالص
     if (attachmentUrl !== undefined) update.attachmentUrl = attachmentUrl;
     if (attachmentTitle !== undefined) update.attachmentTitle = attachmentTitle;
     const video = await Video.findByIdAndUpdate(
@@ -185,6 +184,7 @@ exports.getCourseVideos = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 exports.enrollFreeCourse = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -210,7 +210,9 @@ exports.getMyCourses = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-  // دالة إضافة سؤال جديد للفيديو أو الدرس
+};
+
+// دالة إضافة سؤال جديد للفيديو أو الدرس
 exports.addVideoQuestion = async (req, res) => {
   try {
     const { content } = req.body;
@@ -220,11 +222,10 @@ exports.addVideoQuestion = async (req, res) => {
       return res.status(400).json({ message: "لازم تكتب سؤالك الأول" });
     }
 
-    // هنا بنفترض إن عندك موديل اسمه Question وجواه الحقول دي
     const question = await Question.create({
       content,
       video: videoId,
-      user: req.user._id // الطالب اللي سأل السؤال
+      user: req.user._id
     });
 
     res.status(201).json({ message: "تم إضافة السؤال بنجاح", question });
@@ -233,4 +234,12 @@ exports.addVideoQuestion = async (req, res) => {
   }
 };
 
+// جلب امتحانات كورس معين
+exports.getCourseExams = async (req, res) => {
+  try {
+    const exams = await Exam.find({ course: req.params.courseId });
+    res.json(exams);
+  } catch (err) {
+    res.status(500).json({ message: "خطأ في جلب الامتحانات: " + err.message });
+  }
 };

@@ -2,7 +2,7 @@ const express = require("express");
 const {
   createCourse, getCourses, getCourseById, updateCourse, deleteCourse,
   addVideo, updateVideo, deleteVideo, getCourseVideos,
-  enrollFreeCourse, getMyCourses, addVideoQuestion // ← ضفنا دي هنا
+  enrollFreeCourse, getMyCourses, addVideoQuestion, getCourseExams // ← ضفنا دي هنا
 } = require("../controllers/courseController");
 const { protect, restrictTo } = require("../middleware/auth");
 const { courseRules, checkValidation } = require("../middleware/validators");
@@ -23,5 +23,6 @@ router.patch("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin
 router.delete("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin"), deleteVideo);
 // مسار إضافة سؤال على فيديو معين
 router.post("/videos/:videoId/questions", protect, addVideoQuestion);
-
+// مسار جلب امتحانات الكورس
+router.get("/:courseId/exams", protect, getCourseExams);
 module.exports = router;
