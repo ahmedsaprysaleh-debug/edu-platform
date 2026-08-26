@@ -210,27 +210,4 @@ exports.getMyCourses = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-  // دالة إضافة سؤال جديد للفيديو أو الدرس
-exports.addVideoQuestion = async (req, res) => {
-  try {
-    const { content } = req.body;
-    const { videoId } = req.params;
-
-    if (!content) {
-      return res.status(400).json({ message: "لازم تكتب سؤالك الأول" });
-    }
-
-    // هنا بنفترض إن عندك موديل اسمه Question وجواه الحقول دي
-    const question = await Question.create({
-      content,
-      video: videoId,
-      user: req.user._id // الطالب اللي سأل السؤال
-    });
-
-    res.status(201).json({ message: "تم إضافة السؤال بنجاح", question });
-  } catch (err) {
-    res.status(500).json({ message: err.message || "حصل خطأ أثناء إضافة السؤال" });
-  }
-};
-
 };
