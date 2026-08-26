@@ -20,7 +20,6 @@ exports.register = async (req, res) => {
       finalRole = "teacher";
     }
 
-    // ✅ المستخدم يدخل مباشرة بدون تفعيل إيميل
     const user = await User.create({
       name,
       email,
@@ -94,7 +93,7 @@ exports.resendVerificationByEmail = async (req, res) => {
     try {
       await sendVerificationEmail(user.email, verifyUrl);
     } catch (mailErr) {
-      console.error("فشل إرسال إيميل التفعيل - تأكد من إعدادات SMTP في .env:", mailErr.message);
+      console.error("فشل إرسال إيميل التفعيل:", mailErr.message);
     }
     res.json({ message: "لو الإيميل ده مسجل ومش مفعّل، هيوصلك إيميل تفعيل جديد" });
   } catch (err) {
@@ -112,8 +111,6 @@ exports.login = async (req, res) => {
     if (!user.isActive) {
       return res.status(403).json({ message: "حسابك متعطل، تواصل مع الإدارة" });
     }
-    
-    // ✅ السماح بالدخول حتى لو لم يتم تفعيل الإيميل
 
     const token = signToken(user._id);
     res.json({
@@ -151,7 +148,7 @@ exports.forgotPassword = async (req, res) => {
     try {
       await sendResetEmail(user.email, resetUrl);
     } catch (mailErr) {
-      console.error("فشل إرسال الإيميل - تأكد من إعدادات SMTP في .env:", mailErr.message);
+      console.error("فشل إرسال الإيميل:", mailErr.message);
     }
     res.json({ message: "لو الإيميل ده مسجل، هيوصلك رابط إعادة التعيين" });
   } catch (err) {
@@ -180,7 +177,6 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// ✅ التصدير الصحيح - كل الـ functions
 module.exports = {
   register,
   verifyEmail,
