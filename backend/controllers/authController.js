@@ -20,13 +20,13 @@ exports.register = async (req, res) => {
       finalRole = "teacher";
     }
 
-    // ✅ تعديل: جعل المستخدمين يدخلون مباشرة بدون تفعيل إيميل
+    // ✅ المستخدم يدخل مباشرة بدون تفعيل إيميل
     const user = await User.create({
       name,
       email,
       password,
       role: finalRole,
-      isVerified: true,  // ← المستخدم يدخل مباشرة
+      isVerified: true,
     });
 
     const token = signToken(user._id);
@@ -113,8 +113,7 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: "حسابك متعطل، تواصل مع الإدارة" });
     }
     
-    // ✅ تعديل: السماح بالدخول حتى لو لم يتم تفعيل الإيميل
-    // (الشرط محذوف)
+    // ✅ السماح بالدخول حتى لو لم يتم تفعيل الإيميل
 
     const token = signToken(user._id);
     res.json({
@@ -179,4 +178,16 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+// ✅ التصدير الصحيح - كل الـ functions
+module.exports = {
+  register,
+  verifyEmail,
+  resendVerification,
+  resendVerificationByEmail,
+  login,
+  me,
+  forgotPassword,
+  resetPassword,
 };
