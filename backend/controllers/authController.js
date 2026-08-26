@@ -6,7 +6,7 @@ const { sendResetEmail, sendVerificationEmail } = require("../config/email");
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
 
-exports.register = async (req, res) => {
+const register = async (req, res) => {
   try {
     const { name, email, password, role, teacherInviteCode } = req.body;
     const existing = await User.findOne({ email });
@@ -45,7 +45,7 @@ exports.register = async (req, res) => {
   }
 };
 
-exports.verifyEmail = async (req, res) => {
+const verifyEmail = async (req, res) => {
   try {
     const { token } = req.params;
     const user = await User.findOne({ verificationToken: token });
@@ -60,7 +60,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-exports.resendVerification = async (req, res) => {
+const resendVerification = async (req, res) => {
   try {
     const user = req.user;
     if (user.isVerified) return res.json({ message: "حسابك مفعّل بالفعل" });
@@ -77,7 +77,7 @@ exports.resendVerification = async (req, res) => {
   }
 };
 
-exports.resendVerificationByEmail = async (req, res) => {
+const resendVerificationByEmail = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -101,7 +101,7 @@ exports.resendVerificationByEmail = async (req, res) => {
   }
 };
 
-exports.login = async (req, res) => {
+const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email }).select("+password");
@@ -129,11 +129,11 @@ exports.login = async (req, res) => {
   }
 };
 
-exports.me = async (req, res) => {
+const me = async (req, res) => {
   res.json({ user: req.user });
 };
 
-exports.forgotPassword = async (req, res) => {
+const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -156,7 +156,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-exports.resetPassword = async (req, res) => {
+const resetPassword = async (req, res) => {
   try {
     const { token, password } = req.body;
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
@@ -175,4 +175,16 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
+};
+
+// ✅ التصدير الصحيح والمتوافق تماماً مع الـ Routes بدون الانهيار القديم
+module.exports = {
+  register,
+  verifyEmail,
+  resendVerification,
+  resendVerificationByEmail,
+  login,
+  me,
+  forgotPassword,
+  resetPassword,
 };
