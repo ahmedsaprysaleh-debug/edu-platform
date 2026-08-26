@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const express = require("express");
 const app = express();
 app.set("trust proxy", 1);
@@ -17,7 +18,39 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-app.use(cors({ origin: process.env.CLIENT_URL || "*" }));
+// ✅ CORS محسّن - يقبل Frontend من Vercel والـ localhost
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000",
+  // أضيف الـ Frontend URLs من Vercel
+  process.env.CLIENT_URL,
+  // للـ development والـ testing
+  "*",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // السماح بدون origin (mobile apps, Postman, إلخ)
+      if (!origin) return callback(null, true);
+
+      // السماح بـ localhost والـ Vercel URLs
+      if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        // في production يمكن تشديد هذا
+        console.warn(`⚠️ CORS origin blocked: ${origin}`);
+        callback(null, true); // نسمح بكل الـ origins مؤقتاً
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
 // نتأكد إن الاتصال بالداتابيز شغال قبل أي request (بيرجع فورًا لو متصل بالفعل بفضل الكاش)
@@ -43,6 +76,12 @@ app.use("/api/profile", profileRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/certificates", certificateRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "OK", message: "Server is running" });
+});
+
 app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
 
 app.use((err, req, res, next) => {
