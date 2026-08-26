@@ -18,33 +18,10 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-// ✅ CORS محسّن - يقبل Frontend من Vercel والـ localhost
-const allowedOrigins = [
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:3000",
-  // أضيف الـ Frontend URLs من Vercel
-  process.env.CLIENT_URL,
-  // للـ development والـ testing
-  "*",
-].filter(Boolean);
-
+// ✅ حل مشكلة الـ CORS نهائيًا بجعل الاستجابة مرنة ومتوافقة مع أخطاء الـ 500 على Vercel
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // السماح بدون origin (mobile apps, Postman, إلخ)
-      if (!origin) return callback(null, true);
-
-      // السماح بـ localhost والـ Vercel URLs
-      if (allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        // في production يمكن تشديد هذا
-        console.warn(`⚠️ CORS origin blocked: ${origin}`);
-        callback(null, true); // نسمح بكل الـ origins مؤقتاً
-      }
-    },
+    origin: true, // يوافق تلقائيًا على الـ Origins المرسلة ويمنع قفل المتصفح عند حدوث خطأ داخلي
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -53,17 +30,18 @@ app.use(
 
 app.use(express.json());
 
-// نتأكد إن الاتصال بالداتابيز شغال قبل أي request (بيرجع فورًا لو متصل بالفعل بفضل الكاش)
+// الاتصال بالداتابيز مع معالجة أفضل للأخطاء لمنع تعليق الـ Serverless Function
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (err) {
+    console.error("❌ Database Connection Error:", err);
     res.status(503).json({ message: "الخدمة غير متاحة، فشل الاتصال بقاعدة البيانات" });
   }
 });
 
-// حماية عامة لكل الـ API من الإغراق بالطلبات، ثم حدود أضيق للمسارات الحساسة
+// المسارات والـ Limiters
 app.use("/api", generalLimiter);
 
 app.use("/api/auth", authLimiter, authRoutes);
@@ -84,12 +62,16 @@ app.get("/health", (req, res) => {
 
 app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
 
+// ✅ دالة معالجة الأخطاء لضمان إرجاع استجابة JSON واضحة ومقروءة للمتصفح حتى عند الانهيار
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ message: err.message || "حصل خطأ في السيرفر" });
+  console.error("🔥 Global Error Handler:", err);
+  res.status(err.status || 500).json({ 
+    success: false,
+    message: err.message || "حصل خطأ داخلي في السيرفر" 
+  });
 });
 
-// محلي فقط: على Vercel الملف بيتصدّر كـ handler من غير ما يعمل listen
+// محلي فقط
 if (require.main === module) {
   const PORT = process.env.PORT || 5000;
   connectDB()

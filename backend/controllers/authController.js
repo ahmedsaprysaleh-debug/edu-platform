@@ -176,14 +176,3 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
-module.exports = {
-  register,
-  verifyEmail,
-  resendVerification,
-  resendVerificationByEmail,
-  login,
-  me,
-  forgotPassword,
-  resetPassword,
-};
