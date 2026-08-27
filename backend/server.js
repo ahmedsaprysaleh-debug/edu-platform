@@ -18,11 +18,10 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-// ✅ حل مشكلة الـ CORS نهائيًا بجعل الاستجابة مرنة ومتوافقة مع أخطاء الـ 500 على Vercel
+// ✅ CORS صحيحة - تقبل من أي origin
 app.use(
   cors({
-    origin: true, // يوافق تلقائيًا على الـ Origins المرسلة ويمنع قفل المتصفح عند حدوث خطأ داخلي
-    credentials: true,
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
@@ -30,7 +29,7 @@ app.use(
 
 app.use(express.json());
 
-// الاتصال بالداتابيز مع معالجة أفضل للأخطاء لمنع تعليق الـ Serverless Function
+// الاتصال بالداتابيز
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -62,12 +61,12 @@ app.get("/health", (req, res) => {
 
 app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
 
-// ✅ دالة معالجة الأخطاء لضمان إرجاع استجابة JSON واضحة ومقروءة للمتصفح حتى عند الانهيار
+// معالجة الأخطاء
 app.use((err, req, res, next) => {
   console.error("🔥 Global Error Handler:", err);
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     success: false,
-    message: err.message || "حصل خطأ داخلي في السيرفر" 
+    message: err.message || "حصل خطأ داخلي في السيرفر",
   });
 });
 
