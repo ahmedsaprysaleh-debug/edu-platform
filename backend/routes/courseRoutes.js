@@ -22,6 +22,10 @@ router.get("/:courseId/videos", protect, getCourseVideos);
 router.patch("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin"), updateVideo);
 router.delete("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin"), deleteVideo);
 // مسار إضافة سؤال على فيديو معين
-router.post("/videos/:videoId/questions", protect, addVideoQuestion);
+router.patch("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin"), updateVideo);
+router.delete("/:courseId/videos/:videoId", protect, restrictTo("teacher", "admin"), deleteVideo);
 
+// ❌ الخط الزايد محذوف
+
+module.exports = router;
 module.exports = router;
