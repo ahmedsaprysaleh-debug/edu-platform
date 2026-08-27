@@ -18,14 +18,16 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-// ✅ CORS صحيحة - تقبل من أي origin
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// ✅ CORS في الأول - قبل أي routes
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: false,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // ✅ معالجة OPTIONS requests
 
 app.use(express.json());
 
@@ -59,9 +61,12 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", message: "Server is running" });
 });
 
-app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
+// ✅ 404 handler مع CORS
+app.use((req, res) => {
+  res.status(404).json({ message: "المسار غير موجود" });
+});
 
-// معالجة الأخطاء
+// ✅ معالجة الأخطاء - مع CORS headers
 app.use((err, req, res, next) => {
   console.error("🔥 Global Error Handler:", err);
   res.status(err.status || 500).json({
