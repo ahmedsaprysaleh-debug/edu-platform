@@ -18,20 +18,19 @@ const profileRoutes = require("./routes/profileRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const certificateRoutes = require("./routes/certificateRoutes");
 
-// ✅ CORS في الأول - قبل أي routes
-const corsOptions = {
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: false,
-};
-
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // ✅ معالجة OPTIONS requests
+// ✅ حل مشكلة الـ CORS نهائيًا بجعل الاستجابة مرنة ومتوافقة مع أخطاء الـ 500 على Vercel
+app.use(
+  cors({
+    origin: true, // يوافق تلقائيًا على الـ Origins المرسلة ويمنع قفل المتصفح عند حدوث خطأ داخلي
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
-// الاتصال بالداتابيز
+// الاتصال بالداتابيز مع معالجة أفضل للأخطاء لمنع تعليق الـ Serverless Function
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -61,17 +60,14 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", message: "Server is running" });
 });
 
-// ✅ 404 handler مع CORS
-app.use((req, res) => {
-  res.status(404).json({ message: "المسار غير موجود" });
-});
+app.use((req, res) => res.status(404).json({ message: "المسار غير موجود" }));
 
-// ✅ معالجة الأخطاء - مع CORS headers
+// ✅ دالة معالجة الأخطاء لضمان إرجاع استجابة JSON واضحة ومقروءة للمتصفح حتى عند الانهيار
 app.use((err, req, res, next) => {
   console.error("🔥 Global Error Handler:", err);
-  res.status(err.status || 500).json({
+  res.status(err.status || 500).json({ 
     success: false,
-    message: err.message || "حصل خطأ داخلي في السيرفر",
+    message: err.message || "حصل خطأ داخلي في السيرفر" 
   });
 });
 
